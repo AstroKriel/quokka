@@ -30,3 +30,6 @@ plotfile_interval = 10
 checkpoint_interval = 200
 max_timesteps = 1000
 cfl = 0.3
+
+hydro.rk_integrator_order = 1
+# hydro.reconstruction_order = 1

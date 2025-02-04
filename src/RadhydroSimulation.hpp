@@ -1133,9 +1133,22 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
 		avgFaceVel[idim] = amrex::MultiFab(ba_fc, dm, 1, nghost_vel);
 		avgFaceVel[idim].setVal(0);
 	}
+  std::array<amrex::MultiFab, AMREX_SPACEDIM> ec_emf_components_rk_ave;
+  if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+      auto ba_ec = amrex::convert(ba_cc, amrex::IntVect(1,1,1) - amrex::IntVect::TheDimensionVector(idim));
+      ec_emf_components_rk_ave[idim].define(ba_ec, dm, 1, 0);
+      ec_emf_components_rk_ave[idim].setVal(0.0);
+    }
+  }
 
 	// update ghost zones [old timestep]
 	fillBoundaryConditions(state_old_cc_tmp, state_old_cc_tmp, lev, time, quokka::centering::cc, quokka::direction::na, PreInterpState, PostInterpState);
+  // if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+  //   for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+  //     fillBoundaryConditions(state_old_fc_tmp[idim], state_old_fc_tmp[idim], lev, time, quokka::centering::fc, quokka::direction{idim}, AMRSimulation<problem_t>::InterpHookNone, AMRSimulation<problem_t>::InterpHookNone);
+  //   }
+  // }
 
 	// LOW LEVEL DEBUGGING: output state_old_cc_tmp (with ghost cells)
 	if (lowLevelDebuggingOutput_ == 1) {
@@ -1156,6 +1169,9 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
 	AMREX_ASSERT(!state_old_cc_tmp.contains_nan()); // check ghost cells
 
 	auto [FOfluxArrays, FOfaceVel] = computeFOHydroFluxes(state_old_cc_tmp, ncompHydro_, lev);
+  
+  // TODO(neco): or hopefully someone else.
+  // MHDSystem<problem_t>::ComputeEMF(ec_emf_components_fo, stateInter_cc, stateInter_fc, fast_mhd_wavespeeds, nghost_fc_, 1);
 
 	// Stage 1 of RK2-SSP
 	{
@@ -1172,33 +1188,38 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
       nvars += 3; // add-hoc +3 because +1 (primScalar0_index) precedes +2 (x2Magnetic_index and x3Magnetic_index) at the end of the enum of primitive quantities
     }
     auto [fluxArrays, faceVel, fast_mhd_wavespeeds] = computeHydroFluxes(stateOld_cc, stateOld_fc, nvars, lev);
+		std::array<amrex::MultiFab, AMREX_SPACEDIM> ec_emf_components_rk1;
+    if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+        fast_mhd_wavespeeds[idim].FillBoundary(geom[lev].periodicity());
+        auto ba_ec = amrex::convert(ba_cc, amrex::IntVect(1,1,1) - amrex::IntVect::TheDimensionVector(idim));
+        ec_emf_components_rk1[idim].define(ba_ec, dm, 1, 0);
+      }
+			MHDSystem<problem_t>::ComputeEMF(ec_emf_components_rk1, stateOld_cc, stateOld_fc, fast_mhd_wavespeeds, nghost_fc_, reconstructionOrder_);
+      // for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+      //   auto mask = ec_emf_components_rk_ave[idim].OverlapMask(geom[lev].periodicity());
+      //   ec_emf_components_rk_ave[idim].WeightedSync(*mask, geom[lev].periodicity());
+      // }
+    }
 
 		for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
 			amrex::MultiFab::Saxpy(flux_rk2[idim], 0.5, fluxArrays[idim], 0, 0, ncompHydro_, 0);
 			amrex::MultiFab::Saxpy(avgFaceVel[idim], 0.5, faceVel[idim], 0, 0, 1, 0);
+      if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+        amrex::MultiFab::Saxpy(ec_emf_components_rk_ave[idim], 0.5, ec_emf_components_rk1[idim], 0, 0, 1, 0);
+      }
 		}
 
 		amrex::MultiFab rhs(grids[lev], dmap[lev], ncompHydro_, 0);
 		amrex::iMultiFab redoFlag(grids[lev], dmap[lev], 1, 1);
 		redoFlag.setVal(quokka::redoFlag::none);
 
-		if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
-			std::array<amrex::MultiFab, AMREX_SPACEDIM> ec_emf_components;
-      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-        fast_mhd_wavespeeds[idim].FillBoundary(geom[lev].periodicity());
-        auto ba_ec = amrex::convert(ba_cc, amrex::IntVect(1,1,1) - amrex::IntVect::TheDimensionVector(idim));
-        ec_emf_components[idim].define(ba_ec, dm, 1, 0);
-      }
-			MHDSystem<problem_t>::ComputeEMF(ec_emf_components, stateOld_cc, stateOld_fc, fast_mhd_wavespeeds, nghost_fc_);
-      // for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-      //   auto mask = ec_emf_components[idim].OverlapMask(geom[lev].periodicity());
-      //   ec_emf_components[idim].WeightedSync(*mask, geom[lev].periodicity());
-      // }
-      MHDSystem<problem_t>::SolveInductionEqn(stateOld_fc, stateNew_fc, ec_emf_components, dt_lev);
-    }
 		HydroSystem<problem_t>::ComputeRhsFromFluxes(rhs, fluxArrays, dx, ncompHydro_);
 		HydroSystem<problem_t>::AddInternalEnergyPdV(rhs, stateOld_cc, dx, faceVel, redoFlag);
 		HydroSystem<problem_t>::PredictStep(stateOld_cc, stateNew_cc, rhs, dt_lev, ncompHydro_, redoFlag);
+    if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+      MHDSystem<problem_t>::SolveInductionEqn(stateOld_fc, stateNew_fc, ec_emf_components_rk1, dt_lev);
+    }
 
 		// LOW LEVEL DEBUGGING: output rhs
 		if (lowLevelDebuggingOutput_ == 1) {
@@ -1288,6 +1309,11 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
 		// update ghost zones [intermediate stage stored in state_inter_cc_]
 		fillBoundaryConditions(state_inter_cc_, state_inter_cc_, lev, time + dt_lev, quokka::centering::cc, quokka::direction::na, PreInterpState,
 				       PostInterpState);
+    if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+      fillBoundaryConditions(state_inter_fc_[idim], state_inter_fc_[idim], lev, time, quokka::centering::fc, quokka::direction{idim}, AMRSimulation<problem_t>::InterpHookNone, AMRSimulation<problem_t>::InterpHookNone);
+    }
+  }
 
 		// check intermediate state validity
 		AMREX_ASSERT(!state_inter_cc_.contains_nan(0, state_inter_cc_.nComp()));
@@ -1308,33 +1334,38 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
       nvars += 3; // add-hoc step: +3 because primScalar0_index precedes x2Magnetic_index and x3Magnetic_index at the end of the enum of primitive quantities
     }
     auto [fluxArrays, faceVel, fast_mhd_wavespeeds] = computeHydroFluxes(stateInter_cc, stateInter_fc, nvars, lev);
+		std::array<amrex::MultiFab, AMREX_SPACEDIM> ec_emf_components_rk2;
+    if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+        fast_mhd_wavespeeds[idim].FillBoundary(geom[lev].periodicity());
+        auto ba_ec = amrex::convert(ba_cc, amrex::IntVect(1,1,1) - amrex::IntVect::TheDimensionVector(idim));
+        ec_emf_components_rk2[idim].define(ba_ec, dm, 1, 0);
+      }
+			MHDSystem<problem_t>::ComputeEMF(ec_emf_components_rk2, stateInter_cc, stateInter_fc, fast_mhd_wavespeeds, nghost_fc_, reconstructionOrder_);
+      // for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+      //   auto mask = ec_emf_components_rk2[idim].OverlapMask(geom[lev].periodicity());
+      //   ec_emf_components_rk2[idim].WeightedSync(*mask, geom[lev].periodicity());
+      // }
+    }
 
 		for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
 			amrex::MultiFab::Saxpy(flux_rk2[idim], 0.5, fluxArrays[idim], 0, 0, ncompHydro_, 0);
 			amrex::MultiFab::Saxpy(avgFaceVel[idim], 0.5, faceVel[idim], 0, 0, 1, 0);
+      if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+        amrex::MultiFab::Saxpy(ec_emf_components_rk_ave[idim], 0.5, ec_emf_components_rk2[idim], 0, 0, 1, 0);
+      }
 		}
 
 		amrex::MultiFab rhs(grids[lev], dmap[lev], ncompHydro_, 0);
 		amrex::iMultiFab redoFlag(grids[lev], dmap[lev], 1, 1);
 		redoFlag.setVal(quokka::redoFlag::none);
 
-    if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
-			std::array<amrex::MultiFab, AMREX_SPACEDIM> ec_emf_components;
-      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-        fast_mhd_wavespeeds[idim].FillBoundary(geom[lev].periodicity());
-        auto ba_ec = amrex::convert(ba_cc, amrex::IntVect(1,1,1) - amrex::IntVect::TheDimensionVector(idim));
-        ec_emf_components[idim].define(ba_ec, dm, 1, 0);
-      }
-			MHDSystem<problem_t>::ComputeEMF(ec_emf_components, stateOld_cc, stateOld_fc, fast_mhd_wavespeeds, nghost_fc_);
-      // for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-      //   auto mask = ec_emf_components[idim].OverlapMask(geom[lev].periodicity());
-      //   ec_emf_components[idim].WeightedSync(*mask, geom[lev].periodicity());
-      // }
-      MHDSystem<problem_t>::SolveInductionEqn(stateOld_fc, stateFinal_fc, ec_emf_components, dt_lev);
-    }
 		HydroSystem<problem_t>::ComputeRhsFromFluxes(rhs, flux_rk2, dx, ncompHydro_);
 		HydroSystem<problem_t>::AddInternalEnergyPdV(rhs, stateOld_cc, dx, avgFaceVel, redoFlag);
 		HydroSystem<problem_t>::PredictStep(stateOld_cc, stateFinal_cc, rhs, dt_lev, ncompHydro_, redoFlag);
+    if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+      MHDSystem<problem_t>::SolveInductionEqn(stateOld_fc, stateFinal_fc, ec_emf_components_rk_ave, dt_lev);
+    }
 
 		// do first-order flux correction (FOFC)
 		amrex::Gpu::streamSynchronizeAll(); // just in case
@@ -1391,6 +1422,11 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
 		}
 	} else { // we are only doing forward Euler
 		amrex::Copy(state_new_cc_[lev], state_inter_cc_, 0, 0, ncompHydro_, 0);
+    if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+        amrex::Copy(state_new_fc_[lev][idim], state_inter_fc_[idim], 0, 0, Physics_Indices<problem_t>::nvarPerDim_fc, 0);
+      }
+    }
 	}
 	amrex::Gpu::streamSynchronizeAll();
 

@@ -33,7 +33,7 @@ template <typename problem_t> class MHDSystem : public HyperbolicSystem<problem_
 
 	static void ComputeEMF(std::array<amrex::MultiFab, AMREX_SPACEDIM> &ec_mf_emf_comps, amrex::MultiFab const &cc_mf_cVars,
 			       std::array<amrex::MultiFab, AMREX_SPACEDIM> const &fcx_mf_cVars, std::array<amrex::MultiFab, AMREX_SPACEDIM> const &fcx_mf_fspds,
-			       int nghost_fc);
+			       int nghost_fc, int reconstructionOrder);
 
 	static void ReconstructTo(FluxDir dir, arrayconst_t &cState, array_t &lState, array_t &rState, const amrex::Box &reconstructRange,
 				  int reconstructionOrder);
@@ -44,9 +44,8 @@ template <typename problem_t> class MHDSystem : public HyperbolicSystem<problem_
 template <typename problem_t>
 void MHDSystem<problem_t>::ComputeEMF(std::array<amrex::MultiFab, AMREX_SPACEDIM> &ec_mf_emf_comps, amrex::MultiFab const &cc_mf_cVars,
 				      std::array<amrex::MultiFab, AMREX_SPACEDIM> const &fcx_mf_cVars,
-				      std::array<amrex::MultiFab, AMREX_SPACEDIM> const &fcx_mf_fspds, const int nghost_fc)
+				      std::array<amrex::MultiFab, AMREX_SPACEDIM> const &fcx_mf_fspds, const int nghost_fc, int reconstructionOrder)
 {
-	const int reconstructionOrder = 3;
   const int nghost_cc = 4; // we only need 4 cc ghost cells when reconstructing cc->fc->ec using PPM
 
   // loop over each box-array on the level
@@ -275,16 +274,19 @@ void MHDSystem<problem_t>::ComputeEMF(std::array<amrex::MultiFab, AMREX_SPACEDIM
         const double B0_m_ = B0_m(i, j, k);
         const double B1_p_ = B1_p(i, j, k);
         const double B1_m_ = B1_m(i, j, k);
-        const double _E2_ave = (
-          (
-            fspd_x0_p * fspd_x1_p * E2_q0_ +
-            fspd_x0_p * fspd_x1_m * E2_q1_ +
-            fspd_x0_m * fspd_x1_m * E2_q2_ +
-            fspd_x0_m * fspd_x1_p * E2_q3_
-          ) / (fspd_x0_m + fspd_x0_p) / (fspd_x1_m + fspd_x1_p) -
-          fspd_x1_m * fspd_x1_p / (fspd_x1_m + fspd_x1_p) * (B0_p_ - B0_m_) +
-          fspd_x0_m * fspd_x0_p / (fspd_x0_m + fspd_x0_p) * (B1_p_ - B1_m_)
-        );
+        const double denominator = (fspd_x0_m + fspd_x0_p) * (fspd_x1_m + fspd_x1_p);
+        const double _E2_ave = 0.25 * (E2_q0_ + E2_q1_ + E2_q2_ + E2_q3_);
+        // (
+        //   (
+        //     fspd_x0_p * fspd_x1_p * E2_q0_ +
+        //     fspd_x0_p * fspd_x1_m * E2_q1_ +
+        //     fspd_x0_m * fspd_x1_m * E2_q2_ +
+        //     fspd_x0_m * fspd_x1_p * E2_q3_
+        //   ) / denominator
+        //   // -
+        //   // fspd_x1_m * fspd_x1_p / (fspd_x1_m + fspd_x1_p) * (B0_p_ - B0_m_) +
+        //   // fspd_x0_m * fspd_x0_p / (fspd_x0_m + fspd_x0_p) * (B1_p_ - B1_m_)
+        // );
         E2_ave(i,j,k) = _E2_ave;
       });
 

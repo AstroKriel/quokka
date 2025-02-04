@@ -61,7 +61,7 @@ constexpr double theta_degrees = 0.0; // degrees
 
 // k = 2 pi / wave length
 // box length = 1, so |k| in [1, inf)
-constexpr double num_modes = 1.0;
+constexpr double num_modes = 2;
 constexpr double k_amplitude = 2 * M_PI * num_modes;
 
 // input perturbation: choose to do this via the relative denisty field in [0, 1]. remember, the linear regime is valid when this perturbation is small
@@ -196,21 +196,21 @@ void RadhydroSimulation<AlfvenWave>::computeReferenceSolution_fc(amrex::MultiFab
 
 auto problem_main() -> int
 {
-	const int ncomp_cc = Physics_Indices<AlfvenWave>::nvarTotal_cc;
-	amrex::Vector<amrex::BCRec> BCs_cc(ncomp_cc);
-	for (int n = 0; n < ncomp_cc; ++n) {
-		for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-			BCs_cc[n].setLo(i, amrex::BCType::int_dir); // periodic
-			BCs_cc[n].setHi(i, amrex::BCType::int_dir);
+	const int nvars_cc = Physics_Indices<AlfvenWave>::nvarTotal_cc;
+	amrex::Vector<amrex::BCRec> BCs_cc(nvars_cc);
+	for (int icomp = 0; icomp < nvars_cc; ++icomp) {
+		for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+			BCs_cc[icomp].setLo(idim, amrex::BCType::int_dir); // periodic
+			BCs_cc[icomp].setHi(idim, amrex::BCType::int_dir);
 		}
 	}
 
 	const int nvars_fc = Physics_Indices<AlfvenWave>::nvarTotal_fc;
 	amrex::Vector<amrex::BCRec> BCs_fc(nvars_fc);
-	for (int n = 0; n < nvars_fc; ++n) {
-		for (int i = 0; i < AMREX_SPACEDIM; ++i) {
-			BCs_fc[n].setLo(i, amrex::BCType::int_dir); // periodic
-			BCs_fc[n].setHi(i, amrex::BCType::int_dir);
+	for (int icomp = 0; icomp < nvars_fc; ++icomp) {
+		for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+			BCs_fc[icomp].setLo(idim, amrex::BCType::int_dir); // periodic
+			BCs_fc[icomp].setHi(idim, amrex::BCType::int_dir);
 		}
 	}
 
