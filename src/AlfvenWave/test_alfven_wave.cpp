@@ -54,48 +54,57 @@ constexpr double gamma = 5. / 3.;
 // background states
 constexpr double bg_density = 1.0;
 constexpr double bg_pressure = 1.0;
-constexpr double bg_mag_amplitude = 1.0;
+constexpr double bg_mag_amplitude = 10.0;
 
 // alignment of magnetic field with the direction of wave propogation (in the x1-x2 plane). recall that hat(k) = (1, 0, 0) and hat(delta_u) = (0, 1, 0)
-constexpr double theta = 90.0; // degrees
+constexpr double theta_degrees = 0.0; // degrees
 
-// wave amplitude: box length = 1, so |k| in [0, 1]
-constexpr double k_amplitude = 0.5;
+// k = 2 pi / wave length
+// box length = 1, so |k| in [1, inf)
+constexpr double num_modes = 1.0;
+constexpr double k_amplitude = 2 * M_PI * num_modes;
 
 // input perturbation: choose to do this via the relative denisty field in [0, 1]. remember, the linear regime is valid when this perturbation is small
-constexpr double delta_b = 1e-8;
+constexpr double delta_b = 1e-6;
 
 AMREX_GPU_DEVICE void computeWaveSolution(int i, int j, int k, amrex::Array4<amrex::Real> const &state, amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const &dx, amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const &prob_lo, quokka::centering cen, quokka::direction dir, double t)
 {
-	const amrex::Real x1_L = prob_lo[0];
-  const amrex::Real x1_C = x1_L + (i + static_cast<amrex::Real>(0.5)) * dx[0];
+  const amrex::Real x1_L = prob_lo[0] + i * dx[0];
+  const amrex::Real x2_L = prob_lo[1] + j * dx[1];
+  const amrex::Real x3_L = prob_lo[2] + k * dx[2];
 
-  const double cos_theta = std::cos(theta * M_PI / 180.0);
-  const double sin_theta = std::sin(theta * M_PI / 180.0);
+  const amrex::Real x1_C = x1_L + static_cast<amrex::Real>(0.5) * dx[0];
+  const amrex::Real x2_C = x2_L + static_cast<amrex::Real>(0.5) * dx[1];
+  const amrex::Real x3_C = x3_L + static_cast<amrex::Real>(0.5) * dx[2];
+
+  const double cos_theta = std::cos(theta_degrees * M_PI / 180.0);
+  const double sin_theta = std::sin(theta_degrees * M_PI / 180.0);
 
   const double alfven_speed = bg_mag_amplitude / std::sqrt(bg_density);
   const double bg_mag_x1 = bg_mag_amplitude * cos_theta;
   const double bg_mag_x2 = bg_mag_amplitude * sin_theta;
-  const double bg_mag_x3 = 0.0;
 
   const double omega = std::sqrt(std::pow(alfven_speed,2) * std::pow(k_amplitude,2) * std::pow(cos_theta,2));
 
-  if (cen == quokka::centering::cc) {
-    const double cos_wave_C = std::cos(omega * t - k_amplitude * x1_C);
+  const double cos_wave_C = std::cos(omega * t - k_amplitude * x1_C);
+  const double cos_wave_L = std::cos(omega * t - k_amplitude * x1_L);
 
+  const double x1mag = bg_mag_x1;
+  const double x2mag = bg_mag_x2;
+  const double x3mag = delta_b * cos_wave_L;
+
+  if (cen == quokka::centering::cc) {
     const double density = bg_density;
     const double pressure = bg_pressure;
     const double x1vel = 0;
     const double x2vel = 0;
     const double x3vel = -omega * delta_b / (sound_speed * k_amplitude * cos_theta) * cos_wave_C;
-    const double x1mag = bg_mag_x1 * cos_theta;
-    const double x2mag = bg_mag_x2 * sin_theta;
-    const double x3mag = bg_mag_x3 * delta_b * cos_wave_C;
   
+    const double velocity_magnitude = std::sqrt(std::pow(x1vel, 2) + std::pow(x2vel, 2) + std::pow(x3vel, 2));
+    const double momentum = density * velocity_magnitude;
+    const double Ekin = 0.5 * std::pow(momentum, 2) / density;
+    const double Emag = 0.5 * std::sqrt(std::pow(x1mag, 2) + std::pow(x2mag, 2) + std::pow(x3mag, 2));
     const double Eint = pressure / (gamma - 1);
-    const double momentum = 0.5 * density * (std::pow(x1vel, 2) + std::pow(x2vel, 2) + std::pow(x3vel, 2));
-    const double Ekin = 0.5 * std::pow(momentum,2) / density;
-    const double Emag = 0.5 * (std::pow(x1mag, 2) + std::pow(x2mag, 2) + std::pow(x3mag, 2));
     const double Etot = Ekin + Emag + Eint;
 
     state(i, j, k, HydroSystem<AlfvenWave>::density_index) = density;
@@ -105,12 +114,6 @@ AMREX_GPU_DEVICE void computeWaveSolution(int i, int j, int k, amrex::Array4<amr
     state(i, j, k, HydroSystem<AlfvenWave>::energy_index) = Etot;
     state(i, j, k, HydroSystem<AlfvenWave>::internalEnergy_index) = Eint;
   } else if (cen == quokka::centering::fc) {
-    const double cos_wave_L = std::cos(omega * t - k_amplitude * x1_L);
-
-    const double x1mag = bg_mag_x1 * cos_theta;
-    const double x2mag = bg_mag_x2 * sin_theta;
-    const double x3mag = bg_mag_x3 * delta_b * cos_wave_L;
-
     if      (dir == quokka::direction::x) {state(i, j, k, MHDSystem<AlfvenWave>::bfield_index) = x1mag;}
     else if (dir == quokka::direction::y) {state(i, j, k, MHDSystem<AlfvenWave>::bfield_index) = x2mag;}
     else if (dir == quokka::direction::z) {state(i, j, k, MHDSystem<AlfvenWave>::bfield_index) = x3mag;}
@@ -212,6 +215,7 @@ auto problem_main() -> int
 	}
 
 	RadhydroSimulation<AlfvenWave> sim(BCs_cc, BCs_fc);
+  sim.computeReferenceSolution_ = true;
 	sim.setInitialConditions();
 	sim.evolve();
 

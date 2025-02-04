@@ -81,7 +81,7 @@ template <typename problem_t> class HydroSystem : public HyperbolicSystem<proble
 
 	static auto maxSignalSpeedLocal(amrex::MultiFab const &cons) -> amrex::Real;
 
-	static void ComputeMaxSignalSpeed(amrex::Array4<const amrex::Real> const &cons, array_t &maxSignal, amrex::Box const &indexRange);
+	static void ComputeMaxSignalSpeed(amrex::Array4<const amrex::Real> const &cons_cc, std::array<amrex::Array4<const amrex::Real>, 3> const &cons_fc, array_t &maxSignal, amrex::Box const &indexRange);
 
 	static auto CheckStatesValid(amrex::MultiFab const &cons_mf) -> bool;
 
@@ -229,13 +229,13 @@ template <typename problem_t> auto HydroSystem<problem_t>::maxSignalSpeedLocal(a
 }
 
 template <typename problem_t>
-void HydroSystem<problem_t>::ComputeMaxSignalSpeed(amrex::Array4<const amrex::Real> const &cons, array_t &maxSignal, amrex::Box const &indexRange)
+void HydroSystem<problem_t>::ComputeMaxSignalSpeed(amrex::Array4<const amrex::Real> const &cons_cc, std::array<amrex::Array4<const amrex::Real>, 3> const &cons_fc, array_t &maxSignal, amrex::Box const &indexRange)
 {
 	amrex::ParallelFor(indexRange, [=] AMREX_GPU_DEVICE(int i, int j, int k) {
-		const auto rho = cons(i, j, k, density_index);
-		const auto px = cons(i, j, k, x1Momentum_index);
-		const auto py = cons(i, j, k, x2Momentum_index);
-		const auto pz = cons(i, j, k, x3Momentum_index);
+		const auto rho = cons_cc(i, j, k, density_index);
+		const auto px = cons_cc(i, j, k, x1Momentum_index);
+		const auto py = cons_cc(i, j, k, x2Momentum_index);
+		const auto pz = cons_cc(i, j, k, x3Momentum_index);
 		AMREX_ASSERT(!std::isnan(rho));
 		AMREX_ASSERT(!std::isnan(px));
 		AMREX_ASSERT(!std::isnan(py));
@@ -244,17 +244,46 @@ void HydroSystem<problem_t>::ComputeMaxSignalSpeed(amrex::Array4<const amrex::Re
 		const auto vx = px / rho;
 		const auto vy = py / rho;
 		const auto vz = pz / rho;
-		const double vel_mag = std::sqrt(vx * vx + vy * vy + vz * vz);
-		double cs = NAN;
+		const double vel_magnitude = std::sqrt(vx * vx + vy * vy + vz * vz);
+		double fastest_wavespeed = NAN;
 
-		if constexpr (is_eos_isothermal()) {
-			cs = cs_iso_;
-		} else {
-			cs = ComputeSoundSpeed(cons, i, j, k);
-		}
-		AMREX_ASSERT(cs > 0.);
+    if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+      amrex::GpuArray<Real, nmscalars_> massScalars = RadSystem<problem_t>::ComputeMassScalars(cons_cc, i, j, k);
+      const auto total_energy = cons_cc(i, j, k, energy_index); // *total* gas energy per unit volume
+      const auto kinetic_energy = 0.5 * rho * (vx * vx + vy * vy + vz * vz);
+      const auto thermal_energy = total_energy - kinetic_energy;
+      const auto pressure = quokka::EOS<problem_t>::ComputePressure(rho, thermal_energy, massScalars);
+      double gp = quokka::EOS<problem_t>::gamma_ * pressure;
+      
+      const auto bx1_m = cons_fc[0](i,   j,   k,   Physics_Indices<problem_t>::mhdFirstIndex);
+      const auto bx1_p = cons_fc[0](i+1, j,   k,   Physics_Indices<problem_t>::mhdFirstIndex);
+      const auto bx2_m = cons_fc[1](i,   j,   k,   Physics_Indices<problem_t>::mhdFirstIndex);
+      const auto bx2_p = cons_fc[1](i,   j+1, k,   Physics_Indices<problem_t>::mhdFirstIndex);
+      const auto bx3_m = cons_fc[2](i,   j,   k,   Physics_Indices<problem_t>::mhdFirstIndex);
+      const auto bx3_p = cons_fc[2](i,   j,   k+1, Physics_Indices<problem_t>::mhdFirstIndex);
 
-		const double signal_max = cs + vel_mag;
+      const auto bx1 = 0.5 * (bx1_m + bx1_p);
+      const auto bx2 = 0.5 * (bx2_m + bx2_p);
+      const auto bx3 = 0.5 * (bx3_m + bx3_p);
+      double b_sq = bx1 * bx1 + bx2 * bx2 + bx3 * bx3;
+      
+      double bgp_p = b_sq + gp;
+      double bgp_m = b_sq - gp;
+      fastest_wavespeed = std::max({
+        std::sqrt(0.5 * (bgp_p + std::sqrt(bgp_m * bgp_m + 4.0 * gp * (bx2 * bx2 + bx3 * bx3))) / rho),
+        std::sqrt(0.5 * (bgp_p + std::sqrt(bgp_m * bgp_m + 4.0 * gp * (bx1 * bx1 + bx3 * bx3))) / rho),
+        std::sqrt(0.5 * (bgp_p + std::sqrt(bgp_m * bgp_m + 4.0 * gp * (bx1 * bx1 + bx2 * bx2))) / rho)
+      });
+    } else {
+      if constexpr (is_eos_isothermal()) {
+        fastest_wavespeed = cs_iso_;
+      } else {
+        fastest_wavespeed = ComputeSoundSpeed(cons_cc, i, j, k);
+      }
+      AMREX_ASSERT(fastest_wavespeed > 0.);
+    }
+
+		const double signal_max = fastest_wavespeed + vel_magnitude;
 		maxSignal(i, j, k) = signal_max;
 	});
 }

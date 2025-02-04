@@ -13,12 +13,20 @@ amr.v              = 0       # verbosity in Amr
 # *****************************************************************
 # Resolution and refinement
 # *****************************************************************
-amr.n_cell          = 16 12 8
-amr.max_level       = 0     # number of levels = max_level + 1
-amr.blocking_factor = 4     # grid size must be divisible by this
+amr.n_cell          = 128 12 8
+amr.max_level       = 0 # number of levels = max_level + 1
+# amr.blocking_factor = 4 # grid size must be divisible by this
+amr.max_grid_size_x = 128
+amr.max_grid_size_y = 12
+amr.max_grid_size_z = 8
+amr.blocking_factor_x = 64
+amr.blocking_factor_y = 4
+amr.blocking_factor_z = 4
 
 do_reflux = 0
 do_subcycle = 0
 
-plotfile_interval = 1
+plotfile_interval = 10
 checkpoint_interval = 200
+max_timesteps = 1000
+cfl = 0.3

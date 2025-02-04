@@ -61,7 +61,7 @@ template <typename problem_t> class EOS
 	[[nodiscard]] AMREX_FORCE_INLINE AMREX_GPU_HOST_DEVICE static auto
 	ComputeSoundSpeed(amrex::Real rho, amrex::Real Pressure, std::optional<amrex::GpuArray<amrex::Real, nmscalars_>> massScalars = {}) -> amrex::Real;
 
-      private:
+      public:
 	static constexpr amrex::Real gamma_ = EOS_Traits<problem_t>::gamma;
 	static constexpr amrex::Real boltzmann_constant_ = EOS_Traits<problem_t>::boltzmann_constant;
 	static constexpr amrex::Real mean_molecular_weight_ = EOS_Traits<problem_t>::mean_molecular_weight;

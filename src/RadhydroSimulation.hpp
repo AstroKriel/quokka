@@ -315,12 +315,10 @@ template <typename problem_t> void RadhydroSimulation<problem_t>::defineComponen
 	// add face-centered velocities
 	for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
 		componentNames_fc_.push_back({quokka::face_dir_str[idim] + "-velocity"});
-	}
-	// add mhd state variables
-	if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
-		for (int idim = 0; idim < AMREX_SPACEDIM; idim++) {
-			componentNames_fc_.push_back({quokka::face_dir_str[idim] + "-BField"});
-		}
+    // add mhd state variables
+    if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+      componentNames_fc_.push_back({quokka::face_dir_str[idim] + "-BField"});
+    }
 	}
 }
 
@@ -414,18 +412,24 @@ template <typename problem_t> void RadhydroSimulation<problem_t>::computeMaxSign
 	for (amrex::MFIter iter(state_new_cc_[level]); iter.isValid(); ++iter) {
 		const amrex::Box &indexRange = iter.validbox();
 		auto const &stateNew_cc = state_new_cc_[level].const_array(iter);
+    std::array<amrex::Array4<const amrex::Real>, 3> stateNew_fc;
+    if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
+      for (int idim = 0; idim < 3; ++idim) {
+        stateNew_fc[idim] = state_new_fc_[level][idim].const_array(iter);
+      }
+    }
 		auto const &maxSignal = max_signal_speed_[level].array(iter);
 
 		if constexpr (Physics_Traits<problem_t>::is_hydro_enabled && !(Physics_Traits<problem_t>::is_radiation_enabled)) {
-			// hydro only
-			HydroSystem<problem_t>::ComputeMaxSignalSpeed(stateNew_cc, maxSignal, indexRange);
+			// hydro/mhd
+			HydroSystem<problem_t>::ComputeMaxSignalSpeed(stateNew_cc, stateNew_fc, maxSignal, indexRange);
 		} else if constexpr (Physics_Traits<problem_t>::is_radiation_enabled) {
-			// radiation hydro, or radiation only
+			// radiation hydro/mhd, or radiation only
 			RadSystem<problem_t>::ComputeMaxSignalSpeed(stateNew_cc, maxSignal, indexRange);
 			if constexpr (Physics_Traits<problem_t>::is_hydro_enabled) {
 				auto maxSignalHydroFAB = amrex::FArrayBox(indexRange);
 				auto const &maxSignalHydro = maxSignalHydroFAB.array();
-				HydroSystem<problem_t>::ComputeMaxSignalSpeed(stateNew_cc, maxSignalHydro, indexRange);
+        HydroSystem<problem_t>::ComputeMaxSignalSpeed(stateNew_cc, stateNew_fc, maxSignalHydro, indexRange);
 				const int maxSubsteps = maxSubsteps_;
 				// ensure that we use the smaller of the two timesteps
 				amrex::ParallelFor(indexRange, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
@@ -649,15 +653,15 @@ template <typename problem_t> void RadhydroSimulation<problem_t>::computeAfterEv
     if constexpr(Physics_Traits<problem_t>::is_mhd_enabled) {
       for (int idim = 0; idim < 3; ++idim) {
         amrex::Print() << "Checking fc-quantities in the " << idim << " direction\n";
-        const int ncomp = state_new_fc_[idim][0].nComp();
-        const int nghost = state_new_fc_[idim][0].nGrow();
-        amrex::MultiFab state_ref_level0(boxArray(0), DistributionMap(0), ncomp, nghost);
+        const int ncomp = state_new_fc_[0][idim].nComp();
+        const int nghost = state_new_fc_[0][idim].nGrow();
+        amrex::MultiFab state_ref_level0(amrex::convert(boxArray(0), amrex::IntVect::TheDimensionVector(idim)), DistributionMap(0), ncomp, nghost);
         computeReferenceSolution_fc(state_ref_level0, geom[0].CellSizeArray(), geom[0].ProbLoArray(), quokka::direction{idim});
 
         // compute error norm
-        amrex::MultiFab residual(boxArray(0), DistributionMap(0), ncomp, nghost);
+        amrex::MultiFab residual(amrex::convert(boxArray(0), amrex::IntVect::TheDimensionVector(idim)), DistributionMap(0), ncomp, nghost);
         amrex::MultiFab::Copy(residual, state_ref_level0, 0, 0, ncomp, nghost);
-        amrex::MultiFab::Saxpy(residual, -1., state_new_fc_[idim][0], 0, 0, ncomp, nghost);
+        amrex::MultiFab::Saxpy(residual, -1., state_new_fc_[0][idim], 0, 0, ncomp, nghost);
 
         amrex::Real sol_norm = 0.;
         amrex::Real err_norm = 0.;
@@ -671,7 +675,7 @@ template <typename problem_t> void RadhydroSimulation<problem_t>::computeAfterEv
 
         const double rel_error = err_norm / sol_norm;
         errorNorm_ = rel_error;
-        amrex::Print() << "Relative rms L1 error norm = " << rel_error << '\n';
+        amrex::Print() << "Relative rms L1 error norm = " << rel_error << ", with err_norm = " << err_norm << " and sol_norm = " << sol_norm << "\n";
       }
     }
 	}
@@ -1182,15 +1186,14 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
 			std::array<amrex::MultiFab, AMREX_SPACEDIM> ec_emf_components;
       for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
         fast_mhd_wavespeeds[idim].FillBoundary(geom[lev].periodicity());
-        auto ba_ec = amrex::convert(ba_cc, amrex::IntVect(1,1,1) - amrex::IntVect::TheDimensionVector(2-idim));
-        ec_emf_components[idim].define(ba_ec, dm, 1, nghost_fc_); // only need one components, since reconstructions permutations will be averaged in-place
-        ec_emf_components[idim].setVal(0);
+        auto ba_ec = amrex::convert(ba_cc, amrex::IntVect(1,1,1) - amrex::IntVect::TheDimensionVector(idim));
+        ec_emf_components[idim].define(ba_ec, dm, 1, 0);
       }
 			MHDSystem<problem_t>::ComputeEMF(ec_emf_components, stateOld_cc, stateOld_fc, fast_mhd_wavespeeds, nghost_fc_);
-      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-        auto mask = ec_emf_components[idim].OverlapMask(geom[lev].periodicity());
-        ec_emf_components[idim].WeightedSync(*mask, geom[lev].periodicity());
-      }
+      // for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+      //   auto mask = ec_emf_components[idim].OverlapMask(geom[lev].periodicity());
+      //   ec_emf_components[idim].WeightedSync(*mask, geom[lev].periodicity());
+      // }
       MHDSystem<problem_t>::SolveInductionEqn(stateOld_fc, stateNew_fc, ec_emf_components, dt_lev);
     }
 		HydroSystem<problem_t>::ComputeRhsFromFluxes(rhs, fluxArrays, dx, ncompHydro_);
@@ -1319,15 +1322,14 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
 			std::array<amrex::MultiFab, AMREX_SPACEDIM> ec_emf_components;
       for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
         fast_mhd_wavespeeds[idim].FillBoundary(geom[lev].periodicity());
-        auto ba_ec = amrex::convert(ba_cc, amrex::IntVect(1,1,1) - amrex::IntVect::TheDimensionVector(2-idim));
-        ec_emf_components[idim].define(ba_ec, dm, 1, nghost_fc_); // combine and average reconstructions in-place
-        ec_emf_components[idim].setVal(0);
+        auto ba_ec = amrex::convert(ba_cc, amrex::IntVect(1,1,1) - amrex::IntVect::TheDimensionVector(idim));
+        ec_emf_components[idim].define(ba_ec, dm, 1, 0);
       }
 			MHDSystem<problem_t>::ComputeEMF(ec_emf_components, stateOld_cc, stateOld_fc, fast_mhd_wavespeeds, nghost_fc_);
-      for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
-        auto mask = ec_emf_components[idim].OverlapMask(geom[lev].periodicity());
-        ec_emf_components[idim].WeightedSync(*mask, geom[lev].periodicity());
-      }
+      // for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+      //   auto mask = ec_emf_components[idim].OverlapMask(geom[lev].periodicity());
+      //   ec_emf_components[idim].WeightedSync(*mask, geom[lev].periodicity());
+      // }
       MHDSystem<problem_t>::SolveInductionEqn(stateOld_fc, stateFinal_fc, ec_emf_components, dt_lev);
     }
 		HydroSystem<problem_t>::ComputeRhsFromFluxes(rhs, flux_rk2, dx, ncompHydro_);
@@ -1525,16 +1527,19 @@ auto RadhydroSimulation<problem_t>::computeHydroFluxes(amrex::MultiFab const &co
 	std::array<amrex::MultiFab, AMREX_SPACEDIM> rightState;
 	std::array<amrex::MultiFab, AMREX_SPACEDIM> fast_mhd_wavespeeds;
 
+  int extraGhost;
+  if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) { extraGhost = 1; }
+  else { extraGhost = 0; }
 	for (int idim = 0; idim < 3; ++idim) {
-		flatCoefs[idim] = amrex::MultiFab(ba_cc, dm, 1, flatteningGhost);
+		flatCoefs[idim] = amrex::MultiFab(ba_cc, dm, 1, flatteningGhost+extraGhost);
 	}
 
 	for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
 		auto ba_fc = amrex::convert(ba_cc, amrex::IntVect::TheDimensionVector(idim));
-		leftState[idim] = amrex::MultiFab(ba_fc, dm, nvars, reconstructGhost);
-		rightState[idim] = amrex::MultiFab(ba_fc, dm, nvars, reconstructGhost);
-		flux[idim] = amrex::MultiFab(ba_fc, dm, nvars, 0);
-		facevel[idim] = amrex::MultiFab(ba_fc, dm, 1, 0);
+		leftState[idim] = amrex::MultiFab(ba_fc, dm, nvars, reconstructGhost+extraGhost);
+		rightState[idim] = amrex::MultiFab(ba_fc, dm, nvars, reconstructGhost+extraGhost);
+		flux[idim] = amrex::MultiFab(ba_fc, dm, nvars, 0+extraGhost);
+		facevel[idim] = amrex::MultiFab(ba_fc, dm, 1, 0+extraGhost);
 		if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
 			fast_mhd_wavespeeds[idim] = amrex::MultiFab(ba_fc, dm, 2, 1);
 		}
@@ -1627,20 +1632,15 @@ void RadhydroSimulation<problem_t>::hydroFluxFunction(amrex::MultiFab &primVar_m
       x3State_fc_in = consVar_fc[1].const_arrays();
     }
     auto primVar_in = primVar_mf.arrays();
-    amrex::ParallelFor(primVar_mf, [=] AMREX_GPU_DEVICE(int bx, int i_in, int j_in, int k_in) {
-      quokka::Array4View<const amrex::Real, DIR> x2State_fc(x2State_fc_in[bx]);
-      quokka::Array4View<const amrex::Real, DIR> x3State_fc(x3State_fc_in[bx]);
-      quokka::Array4View<amrex::Real, DIR> primVar(primVar_in[bx]);
+    amrex::IntVect ng{AMREX_D_DECL(nghost_fc_, nghost_fc_, nghost_fc_)};
+    amrex::ParallelFor(primVar_mf, ng, [=] AMREX_GPU_DEVICE(int bx, int i, int j, int k) {
+      const double bx2_m = x2State_fc_in[bx](i,             j,             k,             Physics_Indices<problem_t>::mhdFirstIndex);
+      const double bx2_p = x2State_fc_in[bx](i+delta_x2[0], j+delta_x2[1], k+delta_x2[2], Physics_Indices<problem_t>::mhdFirstIndex);
+      primVar_in[bx](i, j, k, HydroSystem<problem_t>::x2Magnetic_index) = 0.5 * (bx2_m + bx2_p);
 
-      auto [i, j, k] = quokka::reorderMultiIndex<DIR>(i_in, j_in, k_in);
-
-      const double bx2_m = x2State_fc(i,             j,             k,             Physics_Indices<problem_t>::mhdFirstIndex);
-      const double bx2_p = x2State_fc(i+delta_x2[0], j+delta_x2[1], k+delta_x2[2], Physics_Indices<problem_t>::mhdFirstIndex);
-      primVar(i, j, k, HydroSystem<problem_t>::x2Magnetic_index) = 0.5 * (bx2_m + bx2_p);
-
-      const double bx3_m = x3State_fc(i,             j,             k,             Physics_Indices<problem_t>::mhdFirstIndex);
-      const double bx3_p = x3State_fc(i+delta_x3[0], j+delta_x3[1], k+delta_x3[2], Physics_Indices<problem_t>::mhdFirstIndex);
-      primVar(i, j, k, HydroSystem<problem_t>::x3Magnetic_index) = 0.5 * (bx3_m + bx3_p);
+      const double bx3_m = x3State_fc_in[bx](i,             j,             k,             Physics_Indices<problem_t>::mhdFirstIndex);
+      const double bx3_p = x3State_fc_in[bx](i+delta_x3[0], j+delta_x3[1], k+delta_x3[2], Physics_Indices<problem_t>::mhdFirstIndex);
+      primVar_in[bx](i, j, k, HydroSystem<problem_t>::x3Magnetic_index) = 0.5 * (bx3_m + bx3_p);
     });
   }
 
