@@ -1175,7 +1175,8 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
 
 	// Stage 1 of RK2-SSP
 	{
-		// advance all grids on local processor (Stage 1 of integrator)
+		std::cout << "rk2-stage 1" << std::endl;
+    // advance all grids on local processor (Stage 1 of integrator)
 		auto const &stateOld_cc = state_old_cc_tmp;
 		auto &stateNew_cc = state_inter_cc_;
 
@@ -1195,7 +1196,7 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
         auto ba_ec = amrex::convert(ba_cc, amrex::IntVect(1,1,1) - amrex::IntVect::TheDimensionVector(idim));
         ec_emf_components_rk1[idim].define(ba_ec, dm, 1, 0);
       }
-			MHDSystem<problem_t>::ComputeEMF(ec_emf_components_rk1, stateOld_cc, stateOld_fc, fast_mhd_wavespeeds, nghost_fc_, reconstructionOrder_);
+			MHDSystem<problem_t>::ComputeEMF(ec_emf_components_rk1, stateOld_cc, stateOld_fc, fast_mhd_wavespeeds, nghost_fc_, reconstructionOrder_, geom[lev], time);
       // for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
       //   auto mask = ec_emf_components_rk_ave[idim].OverlapMask(geom[lev].periodicity());
       //   ec_emf_components_rk_ave[idim].WeightedSync(*mask, geom[lev].periodicity());
@@ -1218,7 +1219,7 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
 		HydroSystem<problem_t>::AddInternalEnergyPdV(rhs, stateOld_cc, dx, faceVel, redoFlag);
 		HydroSystem<problem_t>::PredictStep(stateOld_cc, stateNew_cc, rhs, dt_lev, ncompHydro_, redoFlag);
     if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
-      MHDSystem<problem_t>::SolveInductionEqn(stateOld_fc, stateNew_fc, ec_emf_components_rk1, dt_lev);
+      MHDSystem<problem_t>::SolveInductionEqn(stateOld_fc, stateNew_fc, ec_emf_components_rk1, dt_lev, geom[lev].CellSizeArray(), geom[lev].ProbLoArray(), time);
     }
 
 		// LOW LEVEL DEBUGGING: output rhs
@@ -1306,6 +1307,7 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
 
 	// Stage 2 of RK2-SSP
 	if (integratorOrder_ == 2) {
+    std::cout << "rk2-stage 2" << std::endl;
 		// update ghost zones [intermediate stage stored in state_inter_cc_]
 		fillBoundaryConditions(state_inter_cc_, state_inter_cc_, lev, time + dt_lev, quokka::centering::cc, quokka::direction::na, PreInterpState,
 				       PostInterpState);
@@ -1341,7 +1343,7 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
         auto ba_ec = amrex::convert(ba_cc, amrex::IntVect(1,1,1) - amrex::IntVect::TheDimensionVector(idim));
         ec_emf_components_rk2[idim].define(ba_ec, dm, 1, 0);
       }
-			MHDSystem<problem_t>::ComputeEMF(ec_emf_components_rk2, stateInter_cc, stateInter_fc, fast_mhd_wavespeeds, nghost_fc_, reconstructionOrder_);
+			MHDSystem<problem_t>::ComputeEMF(ec_emf_components_rk2, stateInter_cc, stateInter_fc, fast_mhd_wavespeeds, nghost_fc_, reconstructionOrder_, geom[lev], time);
       // for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
       //   auto mask = ec_emf_components_rk2[idim].OverlapMask(geom[lev].periodicity());
       //   ec_emf_components_rk2[idim].WeightedSync(*mask, geom[lev].periodicity());
@@ -1364,7 +1366,7 @@ auto RadhydroSimulation<problem_t>::advanceHydroAtLevel(amrex::MultiFab &state_o
 		HydroSystem<problem_t>::AddInternalEnergyPdV(rhs, stateOld_cc, dx, avgFaceVel, redoFlag);
 		HydroSystem<problem_t>::PredictStep(stateOld_cc, stateFinal_cc, rhs, dt_lev, ncompHydro_, redoFlag);
     if constexpr (Physics_Traits<problem_t>::is_mhd_enabled) {
-      MHDSystem<problem_t>::SolveInductionEqn(stateOld_fc, stateFinal_fc, ec_emf_components_rk_ave, dt_lev);
+      MHDSystem<problem_t>::SolveInductionEqn(stateOld_fc, stateFinal_fc, ec_emf_components_rk_ave, dt_lev, geom[lev].CellSizeArray(), geom[lev].ProbLoArray(), time);
     }
 
 		// do first-order flux correction (FOFC)

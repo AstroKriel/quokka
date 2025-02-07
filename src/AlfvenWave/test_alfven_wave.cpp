@@ -91,7 +91,7 @@ AMREX_GPU_DEVICE void computeWaveSolution(int i, int j, int k, amrex::Array4<amr
 
   const double x1mag = bg_mag_x1;
   const double x2mag = bg_mag_x2;
-  const double x3mag = delta_b * cos_wave_L;
+  const double x3mag = bg_mag_amplitude * delta_b * cos_wave_L;
 
   if (cen == quokka::centering::cc) {
     const double density = bg_density;
