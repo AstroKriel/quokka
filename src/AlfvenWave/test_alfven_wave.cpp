@@ -53,7 +53,7 @@ constexpr double gamma = 5. / 3.;
 
 // background states
 constexpr double bg_density = 1.0;
-constexpr double bg_pressure = 1.0;
+constexpr double bg_pressure = sound_speed * sound_speed * bg_density / gamma;
 constexpr double bg_mag_amplitude = 10.0;
 
 // alignment of magnetic field with the direction of wave propogation (in the x1-x2 plane). recall that hat(k) = (1, 0, 0) and hat(delta_u) = (0, 1, 0)
@@ -103,7 +103,7 @@ AMREX_GPU_DEVICE void computeWaveSolution(int i, int j, int k, amrex::Array4<amr
     const double velocity_magnitude = std::sqrt(std::pow(x1vel, 2) + std::pow(x2vel, 2) + std::pow(x3vel, 2));
     const double momentum = density * velocity_magnitude;
     const double Ekin = 0.5 * std::pow(momentum, 2) / density;
-    const double Emag = 0.5 * std::sqrt(std::pow(x1mag, 2) + std::pow(x2mag, 2) + std::pow(x3mag, 2));
+    const double Emag = 0.5 * (x1mag * x1mag + x2mag * x2mag + x3mag * x3mag);
     const double Eint = pressure / (gamma - 1);
     const double Etot = Ekin + Emag + Eint;
 

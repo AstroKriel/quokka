@@ -250,9 +250,10 @@ void MHDSystem<problem_t>::ComputeEMF(std::array<amrex::MultiFab, AMREX_SPACEDIM
           const double b0_exact = mag[w0_comp];
           const double b1_exact = mag[w1_comp];
           double uxb_exact = u0_exact * b1_exact - u1_exact * b0_exact;
-          
+
           double uxb_something = u0_exact * b1 - u1_exact * b0;
-          E2_qi(i, j, k) = uxb_something;
+
+          E2_qi(i, j, k) = uxb;
           int tmp = 0;
         });
 
@@ -288,6 +289,17 @@ void MHDSystem<problem_t>::ComputeEMF(std::array<amrex::MultiFab, AMREX_SPACEDIM
         const double E2_q2_ = E2_q2(i, j, k);
         const double E2_q3_ = E2_q3(i, j, k);
         E2_ave(i,j,k) = 0.25 * (E2_q0_ + E2_q1_ + E2_q2_ + E2_q3_);
+        if (
+            (
+              (
+                (i == 0) || (i == 128)
+              ) && (
+                (j == 0) && (k == 0)
+              )
+            ) && (iedge == 1)
+          ) {
+            int tmp = 0;
+          }
 
         // const double fspd_x0_m = std::max(fspd_x0(i, j, k, 0), fspd_x0(i+delta_w0[0], j+delta_w0[1], k+delta_w0[2], 0));
         // const double fspd_x0_p = std::max(fspd_x0(i, j, k, 1), fspd_x0(i+delta_w0[0], j+delta_w0[1], k+delta_w0[2], 1));
