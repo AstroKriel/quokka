@@ -196,7 +196,7 @@ template <> void QuokkaSimulation<IrrotationalCollapse>::setInitialConditionsOnG
 template <> void QuokkaSimulation<IrrotationalCollapse>::refineGrid(int lev, amrex::TagBoxArray &tags, amrex::Real /*time*/, int /*ngrow*/)
 {
 	// refine on Jeans length
-	const int N_cells = 4; // inverse of the 'Jeans number' [Truelove et al. (1997)]
+	const int N_cells = 4;			      // inverse of the 'Jeans number' [Truelove et al. (1997)]
 	const amrex::Real cs = userData_.sound_speed; // reference sound speed for the Jeans criterion
 	const amrex::Real dx = geom[lev].CellSizeArray()[0];
 	const amrex::Real G = Gconst_;
@@ -216,7 +216,8 @@ template <> void QuokkaSimulation<IrrotationalCollapse>::refineGrid(int lev, amr
 
 template <>
 void QuokkaSimulation<IrrotationalCollapse>::ComputeDerivedVar(int /*lev*/, std::string const &dname, amrex::MultiFab &mf, const int ncomp_cc_in,
-							       amrex::MultiFab const &state_cc, amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> const & /*state_fc*/) const
+							       amrex::MultiFab const &state_cc,
+							       amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> const & /*state_fc*/) const
 {
 	// compute derived variables and save in 'mf'
 	if (dname == "log_density") {
@@ -235,8 +236,8 @@ auto problem_main() -> int
 {
 	// periodic boundary conditions (the FFT velocity field is periodic, and
 	// the paper uses a periodic box with self-gravity + mean subtraction)
-	auto BCs_cc = quokka::BC<IrrotationalCollapse>(quokka::BCType::int_dir,	// x: periodic
-						       quokka::BCType::int_dir,	// y: periodic
+	auto BCs_cc = quokka::BC<IrrotationalCollapse>(quokka::BCType::int_dir,	 // x: periodic
+						       quokka::BCType::int_dir,	 // y: periodic
 						       quokka::BCType::int_dir); // z: periodic
 
 	// read problem parameters
