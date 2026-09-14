@@ -129,14 +129,15 @@ auto problem_main() -> int
 	pp.query("seed_b_wavenumber", seed_b_wavenumber);
 	pp.query("seed_b_fraction", seed_b_fraction);
 	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(seed_b_wavenumber > 0, "setup.seed_b_wavenumber must be a positive integer");
-	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(seed_b_fraction > 0.0,
-					 "setup.seed_b_fraction must be a positive value; the default of 0 runs with zero magnetic seed field (pure-hydro)");
+	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(seed_b_fraction >= 0.0,
+					 "setup.seed_b_fraction must be non-negative; the default of 0 runs with zero magnetic seed field (pure-hydro), "
+					 "or is unused when restarting from an existing checkpoint");
 
 	amrex::ParmParse const pp_turb("turbulence");
 	pp_turb.query("target_vdisp", target_vdisp);
-	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(target_vdisp > 0.0,
-					 "turbulence.target_vdisp must be a positive value; the default of 0 leaves the velocity field to decay "
-					 "(and thus the magnetic field, too)");
+	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(target_vdisp >= 0.0,
+					 "turbulence.target_vdisp must be non-negative; a value of 0 leaves the velocity field (and thus the "
+					 "magnetic field, too) to decay -- e.g. when restarting from an existing checkpoint with driving off");
 
 	amrex::ParmParse const pp_geom("geometry");
 	amrex::Vector<amrex::Real> prob_lo_vec;
