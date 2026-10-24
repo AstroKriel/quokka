@@ -10,6 +10,7 @@
 ///	  https://www.astro.princeton.edu/~jstone/Athena/tests/orszag-tang/pagesource.html)
 ///
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <iomanip>
@@ -24,8 +25,10 @@
 #include "AMReX_GpuQualifiers.H"
 #include "AMReX_MultiFab.H"
 #include "AMReX_ParallelDescriptor.H"
+#include "AMReX_ParmParse.H"
 #include "AMReX_Print.H"
 #include "AMReX_REAL.H"
+#include "AMReX_TagBox.H"
 
 #include "QuokkaSimulation.hpp"
 #include "grid.hpp"
@@ -35,6 +38,8 @@
 #include "util/BC.hpp"
 
 struct OrszagTang {};
+
+AMREX_ENUM(RefineOn, CurrentDensity, PressureGradient); // NOLINT
 
 template <> struct quokka::EOS_Traits<OrszagTang> {
 	static constexpr double gamma = 5. / 3.;
@@ -119,6 +124,74 @@ template <> void QuokkaSimulation<OrszagTang>::setInitialConditionsOnGridFaceVar
 			state_fc(i, j, k, Physics_Indices<OrszagTang>::mhdFirstIndex) = 0;
 		}
 	});
+}
+
+// average the two faces of cell (i, j, k) normal to world direction w
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE auto cellCentredB(std::array<amrex::Array4<const amrex::Real>, AMREX_SPACEDIM> const &state_fc, int w, int i, int j,
+						      int k) -> amrex::Real
+{
+	constexpr int b_comp = Physics_Indices<OrszagTang>::mhdFirstIndex;
+	const amrex::IntVect lower_face{AMREX_D_DECL(i, j, k)};
+	const amrex::IntVect upper_face = lower_face + amrex::IntVect::TheDimensionVector(w);
+	return 0.5 * (state_fc[w](lower_face, b_comp) + state_fc[w](upper_face, b_comp));
+}
+
+template <> void QuokkaSimulation<OrszagTang>::refineGrid(int lev, amrex::TagBoxArray &tags, amrex::Real /*time*/, int /*ngrow*/)
+{
+	amrex::ParmParse const pp("setup");
+	RefineOn refine_based_on{};
+	pp.get("refine_based_on", refine_based_on);
+	amrex::Real refine_threshold = 0.0;
+	pp.get("refine_threshold", refine_threshold);
+	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(refine_threshold > 0.0, "setup.refine_threshold must be > 0.");
+	// ghost cells still hold data from before the last advance; refill them before reading neighbours
+	fillBoundaryConditions(state_new_cc_[lev], state_new_cc_[lev], lev, tNew_[lev], quokka::centering::cc, quokka::direction::na, InterpHookNone,
+			       InterpHookNone, FillPatchType::fillpatch_function);
+	for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+		fillBoundaryConditions(state_new_fc_[lev][idim], state_new_fc_[lev][idim], lev, tNew_[lev], quokka::centering::fc,
+				       static_cast<quokka::direction>(idim), InterpHookNone, InterpHookNone, FillPatchType::fillpatch_function);
+	}
+	const auto dx = geom[lev].CellSizeArray();
+	const amrex::Real dx_min = std::min({dx[0], dx[1], dx[2]});
+	for (amrex::MFIter mfi(state_new_cc_[lev]); mfi.isValid(); ++mfi) {
+		const amrex::Box &box = mfi.validbox();
+		const auto tag = tags.array(mfi);
+		const auto state_cc = state_new_cc_[lev].const_array(mfi);
+		const std::array<amrex::Array4<const amrex::Real>, AMREX_SPACEDIM> state_fc{
+		    state_new_fc_[lev][0].const_array(mfi), state_new_fc_[lev][1].const_array(mfi), state_new_fc_[lev][2].const_array(mfi)};
+		if (refine_based_on == RefineOn::CurrentDensity) {
+			// |curl B| times the smallest cell width, relative to the initial field strength B0
+			amrex::ParallelFor(box, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+				const amrex::Real dbz_dy = (cellCentredB(state_fc, 2, i, j + 1, k) - cellCentredB(state_fc, 2, i, j - 1, k)) / (2.0 * dx[1]);
+				const amrex::Real dby_dz = (cellCentredB(state_fc, 1, i, j, k + 1) - cellCentredB(state_fc, 1, i, j, k - 1)) / (2.0 * dx[2]);
+				const amrex::Real dbx_dz = (cellCentredB(state_fc, 0, i, j, k + 1) - cellCentredB(state_fc, 0, i, j, k - 1)) / (2.0 * dx[2]);
+				const amrex::Real dbz_dx = (cellCentredB(state_fc, 2, i + 1, j, k) - cellCentredB(state_fc, 2, i - 1, j, k)) / (2.0 * dx[0]);
+				const amrex::Real dby_dx = (cellCentredB(state_fc, 1, i + 1, j, k) - cellCentredB(state_fc, 1, i - 1, j, k)) / (2.0 * dx[0]);
+				const amrex::Real dbx_dy = (cellCentredB(state_fc, 0, i, j + 1, k) - cellCentredB(state_fc, 0, i, j - 1, k)) / (2.0 * dx[1]);
+				const amrex::Real current_x = dbz_dy - dby_dz;
+				const amrex::Real current_y = dbx_dz - dbz_dx;
+				const amrex::Real current_z = dby_dx - dbx_dy;
+				const amrex::Real current_magnitude = std::sqrt(current_x * current_x + current_y * current_y + current_z * current_z);
+				if (current_magnitude * dx_min / B0 > refine_threshold) {
+					tag(i, j, k) = amrex::TagBox::SET;
+				}
+			});
+		} else if (refine_based_on == RefineOn::PressureGradient) {
+			// gas-pressure jump across one cell, relative to the local pressure
+			amrex::ParallelFor(box, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+				const amrex::Real pressure = HydroSystem<OrszagTang>::ComputePressure(state_cc, i, j, k, &state_fc);
+				const amrex::Real dp_x = 0.5 * (HydroSystem<OrszagTang>::ComputePressure(state_cc, i + 1, j, k, &state_fc) -
+								HydroSystem<OrszagTang>::ComputePressure(state_cc, i - 1, j, k, &state_fc));
+				const amrex::Real dp_y = 0.5 * (HydroSystem<OrszagTang>::ComputePressure(state_cc, i, j + 1, k, &state_fc) -
+								HydroSystem<OrszagTang>::ComputePressure(state_cc, i, j - 1, k, &state_fc));
+				const amrex::Real dp_z = 0.5 * (HydroSystem<OrszagTang>::ComputePressure(state_cc, i, j, k + 1, &state_fc) -
+								HydroSystem<OrszagTang>::ComputePressure(state_cc, i, j, k - 1, &state_fc));
+				if (std::sqrt(dp_x * dp_x + dp_y * dp_y + dp_z * dp_z) / pressure > refine_threshold) {
+					tag(i, j, k) = amrex::TagBox::SET;
+				}
+			});
+		}
+	}
 }
 
 namespace
