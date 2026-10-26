@@ -127,8 +127,8 @@ template <> void QuokkaSimulation<OrszagTang>::setInitialConditionsOnGridFaceVar
 }
 
 // average the two faces of cell (i, j, k) normal to world direction w
-AMREX_GPU_DEVICE AMREX_FORCE_INLINE auto cellCentredB(std::array<amrex::Array4<const amrex::Real>, AMREX_SPACEDIM> const &state_fc, int w, int i, int j,
-						      int k) -> amrex::Real
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE auto cellCentredB(std::array<amrex::Array4<const amrex::Real>, AMREX_SPACEDIM> const &state_fc, int w, int i, int j, int k)
+    -> amrex::Real
 {
 	constexpr int b_comp = Physics_Indices<OrszagTang>::mhdFirstIndex;
 	const amrex::IntVect lower_face{AMREX_D_DECL(i, j, k)};
