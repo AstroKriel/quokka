@@ -262,6 +262,10 @@ auto checkRot180Symmetry(const amrex::MultiFab &mf, int comp, const amrex::Box &
 
 template <> void QuokkaSimulation<OrszagTang>::computeAfterEvolve(amrex::Vector<amrex::Real> & /*initSumCons*/)
 {
+	if (max_level > 0) {
+		amrex::Print() << "[rot180] skipped: AMR (amr.max_level > 0) does not preserve bit-exact point-reflection symmetry.\n";
+		return;
+	}
 	// the Orszag-Tang vortex's IC is point-symmetric about the domain centre, so the exact solution stays
 	// bit-exactly rot180-symmetric for all time; a floating-point non-associativity bug in
 	// reconstruction, EMF averaging, or the Riemann solver breaks this (see PR #1997).
