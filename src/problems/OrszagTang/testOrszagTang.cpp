@@ -22,12 +22,14 @@
 #include "AMReX_DistributionMapping.H"
 #include "AMReX_FArrayBox.H"
 #include "AMReX_Gpu.H"
+#include "AMReX_GpuContainers.H"
 #include "AMReX_GpuQualifiers.H"
 #include "AMReX_MultiFab.H"
 #include "AMReX_ParallelDescriptor.H"
 #include "AMReX_ParmParse.H"
 #include "AMReX_Print.H"
 #include "AMReX_REAL.H"
+#include "AMReX_Reduce.H"
 #include "AMReX_TagBox.H"
 
 #include "QuokkaSimulation.hpp"
@@ -191,6 +193,68 @@ template <> void QuokkaSimulation<OrszagTang>::refineGrid(int lev, amrex::TagBox
 				}
 			});
 		}
+	}
+	int tag_full_columns = 0;
+	pp.query("tag_full_columns", tag_full_columns);
+	if (tag_full_columns == 0) {
+		return;
+	}
+	// a column is tagged everywhere if any of its cells is tagged, so refined patches span the full z-extent
+	const amrex::Box &domain = geom[lev].Domain();
+	const int nx = domain.length(0);
+	const int x_lo = domain.smallEnd(0);
+	const int y_lo = domain.smallEnd(1);
+	const int num_columns = nx * domain.length(1);
+	amrex::Gpu::DeviceVector<int> column_is_tagged(num_columns, 0);
+	int *column_is_tagged_ptr = column_is_tagged.data();
+	for (amrex::MFIter mfi(state_new_cc_[lev]); mfi.isValid(); ++mfi) {
+		const auto tag = tags.const_array(mfi);
+		amrex::ParallelFor(mfi.validbox(), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+			if (tag(i, j, k) == amrex::TagBox::SET) {
+				column_is_tagged_ptr[((j - y_lo) * nx) + (i - x_lo)] = 1;
+			}
+		});
+	}
+	amrex::Vector<int> column_is_tagged_host(num_columns);
+	amrex::Gpu::copy(amrex::Gpu::deviceToHost, column_is_tagged.begin(), column_is_tagged.end(), column_is_tagged_host.begin());
+	amrex::ParallelDescriptor::ReduceIntMax(column_is_tagged_host.data(), num_columns);
+	amrex::Gpu::copy(amrex::Gpu::hostToDevice, column_is_tagged_host.begin(), column_is_tagged_host.end(), column_is_tagged.begin());
+	for (amrex::MFIter mfi(state_new_cc_[lev]); mfi.isValid(); ++mfi) {
+		const auto tag = tags.array(mfi);
+		amrex::ParallelFor(mfi.validbox(), [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+			if (column_is_tagged_ptr[((j - y_lo) * nx) + (i - x_lo)] == 1) {
+				tag(i, j, k) = amrex::TagBox::SET;
+			}
+		});
+	}
+}
+
+// the solution is z-invariant, so any z-momentum, z-field or z-variation of density measures broken symmetry
+template <> void QuokkaSimulation<OrszagTang>::computeAfterTimestep()
+{
+	constexpr int density_comp = HydroSystem<OrszagTang>::density_index;
+	for (int lev = 0; lev <= finest_level; ++lev) {
+		const amrex::MultiFab &state_cc = state_new_cc_[lev];
+		const amrex::Real max_abs_momentum_z = state_cc.norminf(HydroSystem<OrszagTang>::x3Momentum_index);
+		const amrex::Real max_abs_field_z = state_new_fc_[lev][2].norminf(Physics_Indices<OrszagTang>::mhdFirstIndex);
+		amrex::ReduceOps<amrex::ReduceOpMax> reduce_op;
+		amrex::ReduceData<amrex::Real> reduce_data(reduce_op);
+		for (amrex::MFIter mfi(state_cc); mfi.isValid(); ++mfi) {
+			const amrex::Box &box = mfi.validbox();
+			const int k_top = box.bigEnd(2);
+			const auto state = state_cc.const_array(mfi);
+			reduce_op.eval(box, reduce_data, [=] AMREX_GPU_DEVICE(int i, int j, int k) -> amrex::GpuTuple<amrex::Real> {
+				if (k == k_top) {
+					return {0.0};
+				}
+				return {std::abs(state(i, j, k + 1, density_comp) - state(i, j, k, density_comp)) / state(i, j, k, density_comp)};
+			});
+		}
+		amrex::Real max_density_z_jump = amrex::get<0>(reduce_data.value());
+		amrex::ParallelDescriptor::ReduceRealMax(max_density_z_jump);
+		amrex::Print() << "[z-symmetry] step " << istep[0] << " t = " << std::setprecision(6) << tNew_[0] << " level " << lev << std::scientific
+			       << std::setprecision(3) << " density_z_jump " << max_density_z_jump << " max_abs_momentum_z " << max_abs_momentum_z
+			       << " max_abs_field_z " << max_abs_field_z << std::defaultfloat << "\n";
 	}
 }
 
