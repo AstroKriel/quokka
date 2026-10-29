@@ -2664,6 +2664,39 @@ void AMRSimulation<problem_t>::MakeNewLevelFromCoarse(int level, amrex::Real tim
 	}
 }
 
+// largest change of component comp between z-neighbours within a box, optionally relative to the local value
+inline auto maxZJump(const amrex::MultiFab &mf, int comp, bool relative) -> amrex::Real
+{
+	amrex::ReduceOps<amrex::ReduceOpMax> reduce_op;
+	amrex::ReduceData<amrex::Real> reduce_data(reduce_op);
+	for (amrex::MFIter mfi(mf); mfi.isValid(); ++mfi) {
+		const amrex::Box &box = mfi.validbox();
+		const int k_top = box.bigEnd(2);
+		const auto values = mf.const_array(mfi);
+		reduce_op.eval(box, reduce_data, [=] AMREX_GPU_DEVICE(int i, int j, int k) -> amrex::GpuTuple<amrex::Real> {
+			if (k == k_top) {
+				return {0.0};
+			}
+			const amrex::Real jump = std::abs(values(i, j, k + 1, comp) - values(i, j, k, comp));
+			if (relative) {
+				return {jump / std::abs(values(i, j, k, comp))};
+			}
+			return {jump};
+		});
+	}
+	amrex::Real max_jump = amrex::get<0>(reduce_data.value());
+	amrex::ParallelDescriptor::ReduceRealMax(max_jump);
+	return max_jump;
+}
+
+inline void printZSymmetryRemake(const std::string &stage, int level, const amrex::MultiFab &state_cc,
+				 const amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &state_fc)
+{
+	amrex::Print() << "[z-symmetry remake] level " << level << " " << stage << std::scientific << std::setprecision(3) << " density_z_jump "
+		       << maxZJump(state_cc, 0, true) << " bx_z_jump " << maxZJump(state_fc[0], 0, false) << " by_z_jump " << maxZJump(state_fc[1], 0, false)
+		       << " max_abs_bz " << state_fc[2].norminf(0) << std::defaultfloat << "\n";
+}
+
 // Remake an existing level using provided BoxArray and DistributionMapping and
 // fill with existing fine and coarse data. Overrides the pure virtual function
 // in AmrCore
@@ -2672,12 +2705,19 @@ void AMRSimulation<problem_t>::RemakeLevel(int level, amrex::Real time, const am
 {
 	BL_PROFILE("AMRSimulation::RemakeLevel()"); // NOLINT(misc-const-correctness)
 
+	if constexpr (Physics_Indices<problem_t>::nvarTotal_fc > 0) {
+		printZSymmetryRemake("before", level, state_new_cc_[level], state_new_fc_[level]);
+	}
 	// cell-centred
 	const int ncomp_cc = state_new_cc_[level].nComp();
 	const int nghost_cc = state_new_cc_[level].nGrow();
 	amrex::MultiFab int_state_new_cc(ba, dm, ncomp_cc, nghost_cc);
 	amrex::MultiFab int_state_old_cc(ba, dm, ncomp_cc, nghost_cc);
 	FillPatch(level, time, int_state_new_cc, 0, ncomp_cc, quokka::centering::cc, quokka::direction::na, FillPatchType::fillpatch_function);
+	if constexpr (Physics_Indices<problem_t>::nvarTotal_fc > 0) {
+		amrex::Print() << "[z-symmetry remake] level " << level << " after_cc_fill density_z_jump " << std::scientific << std::setprecision(3)
+			       << maxZJump(int_state_new_cc, 0, true) << std::defaultfloat << "\n";
+	}
 	std::swap(int_state_new_cc, state_new_cc_[level]);
 	std::swap(int_state_old_cc, state_old_cc_[level]);
 
@@ -2716,6 +2756,7 @@ void AMRSimulation<problem_t>::RemakeLevel(int level, amrex::Real time, const am
 		}
 		// preserves the existing fine field on overlapping coverage; see FillPatchFaceArray
 		FillPatchFaceArray(level, time, int_state_new_fc_ptr, 0, ncomp_per_dim_fc, BCs_array);
+		printZSymmetryRemake("after_fc_fill", level, state_new_cc_[level], int_state_new_fc);
 		// old-time data is invalidated by the tOld_ sentinel set above, so a coarse-only fill suffices
 		FillCoarsePatchFaceArray(level, time, int_state_old_fc_ptr, 0, ncomp_per_dim_fc, BCs_array);
 		for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
