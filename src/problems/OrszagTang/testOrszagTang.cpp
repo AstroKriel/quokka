@@ -276,24 +276,40 @@ template <> void QuokkaSimulation<OrszagTang>::computeAfterLevelAdvance(int lev,
 	}
 	++num_reports;
 	const amrex::IntVect face = abs_field_z.maxIndex(0);
+	const int k_top_face = geom[lev].Domain().bigEnd(2) + 1;
+	amrex::ReduceOps<amrex::ReduceOpMax> reduce_op;
+	amrex::ReduceData<amrex::Real> reduce_data(reduce_op);
+	for (amrex::MFIter mfi(abs_field_z); mfi.isValid(); ++mfi) {
+		const auto values = abs_field_z.const_array(mfi);
+		reduce_op.eval(mfi.validbox(), reduce_data, [=] AMREX_GPU_DEVICE(int i, int j, int k) -> amrex::GpuTuple<amrex::Real> {
+			if (k == 0 || k == k_top_face) {
+				return {0.0};
+			}
+			return {values(i, j, k)};
+		});
+	}
+	amrex::Real max_abs_field_z_interior = amrex::get<0>(reduce_data.value());
+	amrex::ParallelDescriptor::ReduceRealMax(max_abs_field_z_interior);
 	amrex::Print() << "[bz-locate] level " << lev << " level_step " << istep[lev] << " t = " << std::setprecision(10) << time << " max_abs_bz "
-		       << std::scientific << std::setprecision(3) << max_abs_field_z << std::defaultfloat << " at z-face " << face << "\n";
-	const auto boxes_with_face = field_z.boxArray().intersections(amrex::Box(face, face, field_z.ixType()));
-	for (const auto &[box_index, overlap] : boxes_with_face) {
-		const amrex::Box valid_box = field_z.boxArray()[box_index];
-		amrex::Real value = 0.0;
-		amrex::Gpu::copy(amrex::Gpu::deviceToHost, &field_z.const_array(box_index)(face, b_comp), &field_z.const_array(box_index)(face, b_comp) + 1,
-				 &value);
-		amrex::Print() << "[bz-locate]   box " << box_index << " " << valid_box << " bz " << std::scientific << std::setprecision(6) << value
-			       << std::defaultfloat << " face_on_box_z_edge " << ((face[2] == valid_box.smallEnd(2)) || (face[2] == valid_box.bigEnd(2)))
-			       << "\n";
+		       << std::scientific << std::setprecision(3) << max_abs_field_z << " max_abs_bz_away_from_periodic_z_faces " << max_abs_field_z_interior
+		       << std::defaultfloat << " at z-face " << face << "\n";
+	for (const int k_face : {0, k_top_face}) {
+		const amrex::IntVect periodic_face{face[0], face[1], k_face};
+		const auto boxes_with_face = field_z.boxArray().intersections(amrex::Box(periodic_face, periodic_face, field_z.ixType()));
+		for (const auto &[box_index, overlap] : boxes_with_face) {
+			amrex::Real value = 0.0;
+			const amrex::Real *value_ptr = &field_z.const_array(box_index)(periodic_face, b_comp);
+			amrex::Gpu::copy(amrex::Gpu::deviceToHost, value_ptr, value_ptr + 1, &value);
+			amrex::Print() << "[bz-locate]   z-face " << periodic_face << " in box " << box_index << " " << field_z.boxArray()[box_index] << " bz "
+				       << std::scientific << std::setprecision(6) << value << std::defaultfloat << "\n";
+		}
 	}
 	const amrex::BoxArray &level_cells = boxArray(lev);
-	const amrex::IntVect cell_below = face - amrex::IntVect::TheDimensionVector(2);
+	const amrex::IntVect column_cell{face[0], face[1], 0};
 	for (int dir = 0; dir < 2; ++dir) {
 		for (int sign = -1; sign <= 1; sign += 2) {
 			int distance = 1;
-			while (distance <= 32 && level_cells.contains(cell_below + (sign * distance) * amrex::IntVect::TheDimensionVector(dir))) {
+			while (distance <= 32 && level_cells.contains(column_cell + (sign * distance) * amrex::IntVect::TheDimensionVector(dir))) {
 				++distance;
 			}
 			std::string direction_label = "-";
