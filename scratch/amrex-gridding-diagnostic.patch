@@ -1,5 +1,5 @@
 diff --git a/Src/AmrCore/AMReX_AmrMesh.cpp b/Src/AmrCore/AMReX_AmrMesh.cpp
-index 7de2f0525..106627563 100644
+index 7de2f0525..9f3dd9509 100644
 --- a/Src/AmrCore/AMReX_AmrMesh.cpp
 +++ b/Src/AmrCore/AMReX_AmrMesh.cpp
 @@ -11,6 +11,7 @@
@@ -10,7 +10,16 @@ index 7de2f0525..106627563 100644
  #include <memory>
  
  namespace amrex {
-@@ -861,12 +862,55 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>&
+@@ -825,6 +826,8 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>&
+         // Remove cells outside proper nesting domain for this level.
+         //
+         tags.setVal(p_n_comp_ba[levc],TagBox::CLEAR);
++        const BoxArray nesting_complement_copy = p_n_comp_ba[levc];
++        const BoxArray nesting_domain_copy = p_n_ba[levc];
+         p_n_comp_ba[levc].clear();
+         //
+         // Create initial cluster containing all tagged points.
+@@ -861,12 +864,61 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>&
                      } else {
                          clist.chop(grid_eff);
                      }
@@ -58,8 +67,14 @@ index 7de2f0525..106627563 100644
 +                            for (auto const& box : new_bx) {
 +                                amrex::Print() << "[gridding]   cluster after nesting " << box << "\n";
 +                            }
-+                            for (int ibox = 0; ibox < static_cast<int>(p_n_ba[levc].size()); ++ibox) {
-+                                amrex::Print() << "[gridding]   nesting domain box " << p_n_ba[levc][ibox] << "\n";
++                            for (int ibox = 0; ibox < static_cast<int>(nesting_domain_copy.size()); ++ibox) {
++                                amrex::Print() << "[gridding]   nesting domain box " << nesting_domain_copy[ibox] << "\n";
++                            }
++                            for (int ibox = 0; ibox < static_cast<int>(nesting_complement_copy.size()); ++ibox) {
++                                amrex::Print() << "[gridding]   nesting complement box " << nesting_complement_copy[ibox] << "\n";
++                            }
++                            for (int ibox = 0; ibox < static_cast<int>(grids[levc].size()); ++ibox) {
++                                amrex::Print() << "[gridding]   coarse level grid " << grids[levc][ibox] << "\n";
 +                            }
 +                        }
 +                    }
