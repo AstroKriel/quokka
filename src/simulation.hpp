@@ -2612,6 +2612,8 @@ template <typename problem_t> auto AMRSimulation<problem_t>::getAmrInterpolaterF
 	return &amrex::face_linear_interp;
 }
 
+inline void printPartialColumns(const std::string &stage, int level, const amrex::BoxArray &ba, const amrex::Box &domain);
+
 // Make a new level using provided BoxArray and DistributionMapping and fill
 // with interpolated coarse level data. Overrides the pure virtual function in
 // AmrCore
@@ -2619,6 +2621,7 @@ template <typename problem_t>
 void AMRSimulation<problem_t>::MakeNewLevelFromCoarse(int level, amrex::Real time, const amrex::BoxArray &ba, const amrex::DistributionMapping &dm)
 {
 	BL_PROFILE("AMRSimulation::MakeNewLevelFromCoarse()"); // NOLINT(misc-const-correctness)
+	printPartialColumns("make_new", level, ba, Geom(level).Domain());
 
 	// cell-centred
 	const int ncomp_cc = state_new_cc_[level - 1].nComp();
@@ -2697,6 +2700,34 @@ inline void printZSymmetryRemake(const std::string &stage, int level, const amre
 		       << " max_abs_bz " << state_fc[2].norminf(0) << std::defaultfloat << "\n";
 }
 
+// count (x, y) columns that the new BoxArray covers at some z but not all, and list the boxes when there are any
+inline void printPartialColumns(const std::string &stage, int level, const amrex::BoxArray &ba, const amrex::Box &domain)
+{
+	const int nx = domain.length(0);
+	const int nz = domain.length(2);
+	std::vector<int> cells_per_column(static_cast<std::size_t>(nx) * domain.length(1), 0);
+	for (int box_index = 0; box_index < static_cast<int>(ba.size()); ++box_index) {
+		const amrex::Box box = ba[box_index];
+		for (int j = box.smallEnd(1); j <= box.bigEnd(1); ++j) {
+			for (int i = box.smallEnd(0); i <= box.bigEnd(0); ++i) {
+				cells_per_column[(static_cast<std::size_t>(j) * nx) + i] += box.length(2);
+			}
+		}
+	}
+	int num_partial_columns = 0;
+	for (const int cells : cells_per_column) {
+		if (cells > 0 && cells != nz) {
+			++num_partial_columns;
+		}
+	}
+	amrex::Print() << "[partial-columns] level " << level << " " << stage << " boxes " << ba.size() << " partial_columns " << num_partial_columns << "\n";
+	if (num_partial_columns > 0) {
+		for (int box_index = 0; box_index < static_cast<int>(ba.size()); ++box_index) {
+			amrex::Print() << "[partial-columns]   box " << box_index << " " << ba[box_index] << "\n";
+		}
+	}
+}
+
 // Remake an existing level using provided BoxArray and DistributionMapping and
 // fill with existing fine and coarse data. Overrides the pure virtual function
 // in AmrCore
@@ -2705,6 +2736,7 @@ void AMRSimulation<problem_t>::RemakeLevel(int level, amrex::Real time, const am
 {
 	BL_PROFILE("AMRSimulation::RemakeLevel()"); // NOLINT(misc-const-correctness)
 
+	printPartialColumns("remake", level, ba, Geom(level).Domain());
 	if constexpr (Physics_Indices<problem_t>::nvarTotal_fc > 0) {
 		printZSymmetryRemake("before", level, state_new_cc_[level], state_new_fc_[level]);
 	}
