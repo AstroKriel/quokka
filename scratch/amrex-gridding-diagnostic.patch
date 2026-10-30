@@ -1,0 +1,68 @@
+diff --git a/Src/AmrCore/AMReX_AmrMesh.cpp b/Src/AmrCore/AMReX_AmrMesh.cpp
+index 7de2f0525..106627563 100644
+--- a/Src/AmrCore/AMReX_AmrMesh.cpp
++++ b/Src/AmrCore/AMReX_AmrMesh.cpp
+@@ -11,6 +11,7 @@
+ #include <AMReX_Bittree.H>
+ #endif
+ 
++#include <map>
+ #include <memory>
+ 
+ namespace amrex {
+@@ -861,12 +862,55 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Vector<BoxArray>&
+                     } else {
+                         clist.chop(grid_eff);
+                     }
++                    BoxList clusters_before_nesting = clist.boxList();
+                     clist.intersect(p_n_ba[levc]);
+                     //
+                     // Efficient properly nested Clusters have been constructed
+                     // now generate list of grids at level levf.
+                     //
+                     clist.boxList(new_bx);
++                    {
++                        const int num_z_blocks = pc_domain[levc].length(2);
++                        auto count_partial_columns = [num_z_blocks] (const BoxList& boxes) {
++                            std::map<std::pair<int,int>,int> cells_per_column;
++                            for (auto const& box : boxes) {
++                                for (int j = box.smallEnd(1); j <= box.bigEnd(1); ++j) {
++                                    for (int i = box.smallEnd(0); i <= box.bigEnd(0); ++i) {
++                                        cells_per_column[{i,j}] += box.length(2);
++                                    }
++                                }
++                            }
++                            int num_partial = 0;
++                            for (auto const& column : cells_per_column) {
++                                if (column.second != num_z_blocks) { ++num_partial; }
++                            }
++                            return num_partial;
++                        };
++                        std::map<std::pair<int,int>,int> tags_per_column;
++                        for (auto const& tagged_cell : tagvec) {
++                            tags_per_column[{tagged_cell[0],tagged_cell[1]}] += 1;
++                        }
++                        int num_partial_tag_columns = 0;
++                        for (auto const& column : tags_per_column) {
++                            if (column.second != num_z_blocks) { ++num_partial_tag_columns; }
++                        }
++                        const int num_partial_after = count_partial_columns(new_bx);
++                        amrex::Print() << "[gridding] levc " << levc << " z_blocks " << num_z_blocks
++                                       << " partial_tag_columns " << num_partial_tag_columns
++                                       << " partial_cluster_columns_before_nesting " << count_partial_columns(clusters_before_nesting)
++                                       << " partial_columns_after_nesting " << num_partial_after << "\n";
++                        if (num_partial_after > 0) {
++                            for (auto const& box : clusters_before_nesting) {
++                                amrex::Print() << "[gridding]   cluster before nesting " << box << "\n";
++                            }
++                            for (auto const& box : new_bx) {
++                                amrex::Print() << "[gridding]   cluster after nesting " << box << "\n";
++                            }
++                            for (int ibox = 0; ibox < static_cast<int>(p_n_ba[levc].size()); ++ibox) {
++                                amrex::Print() << "[gridding]   nesting domain box " << p_n_ba[levc][ibox] << "\n";
++                            }
++                        }
++                    }
+                     new_bx.refine(bf_lev[levc]);
+                     new_bx.simplify();
+ 
