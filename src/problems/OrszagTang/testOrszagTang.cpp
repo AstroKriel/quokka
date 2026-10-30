@@ -258,6 +258,53 @@ template <> void QuokkaSimulation<OrszagTang>::computeAfterTimestep()
 	}
 }
 
+// locate the largest |B_z| after each level advance, and report the boxes sharing that face and its distance to the level edge
+template <> void QuokkaSimulation<OrszagTang>::computeAfterLevelAdvance(int lev, amrex::Real time, amrex::Real /*dt_lev*/, int /*ncycle*/)
+{
+	static int num_reports = 0;
+	if (num_reports >= 10) {
+		return;
+	}
+	constexpr int b_comp = Physics_Indices<OrszagTang>::mhdFirstIndex;
+	const amrex::MultiFab &field_z = state_new_fc_[lev][2];
+	amrex::MultiFab abs_field_z(field_z.boxArray(), field_z.DistributionMap(), 1, 0);
+	amrex::MultiFab::Copy(abs_field_z, field_z, b_comp, 0, 1, 0);
+	abs_field_z.abs(0, 1);
+	const amrex::Real max_abs_field_z = abs_field_z.max(0);
+	if (max_abs_field_z < 1.0e-12) {
+		return;
+	}
+	++num_reports;
+	const amrex::IntVect face = abs_field_z.maxIndex(0);
+	amrex::Print() << "[bz-locate] level " << lev << " level_step " << istep[lev] << " t = " << std::setprecision(10) << time << " max_abs_bz "
+		       << std::scientific << std::setprecision(3) << max_abs_field_z << std::defaultfloat << " at z-face " << face << "\n";
+	const auto boxes_with_face = field_z.boxArray().intersections(amrex::Box(face, face, field_z.ixType()));
+	for (const auto &[box_index, overlap] : boxes_with_face) {
+		const amrex::Box valid_box = field_z.boxArray()[box_index];
+		amrex::Real value = 0.0;
+		amrex::Gpu::copy(amrex::Gpu::deviceToHost, &field_z.const_array(box_index)(face, b_comp), &field_z.const_array(box_index)(face, b_comp) + 1,
+				 &value);
+		amrex::Print() << "[bz-locate]   box " << box_index << " " << valid_box << " bz " << std::scientific << std::setprecision(6) << value
+			       << std::defaultfloat << " face_on_box_z_edge " << ((face[2] == valid_box.smallEnd(2)) || (face[2] == valid_box.bigEnd(2)))
+			       << "\n";
+	}
+	const amrex::BoxArray &level_cells = boxArray(lev);
+	const amrex::IntVect cell_below = face - amrex::IntVect::TheDimensionVector(2);
+	for (int dir = 0; dir < 2; ++dir) {
+		for (int sign = -1; sign <= 1; sign += 2) {
+			int distance = 1;
+			while (distance <= 32 && level_cells.contains(cell_below + (sign * distance) * amrex::IntVect::TheDimensionVector(dir))) {
+				++distance;
+			}
+			std::string direction_label = "-";
+			if (sign > 0) {
+				direction_label = "+";
+			}
+			amrex::Print() << "[bz-locate]   distance to level edge along " << direction_label << "xy"[dir] << ": " << distance << " cells\n";
+		}
+	}
+}
+
 namespace
 {
 enum class Rot180Parity { Even, Odd };
