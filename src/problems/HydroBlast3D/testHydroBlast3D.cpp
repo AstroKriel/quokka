@@ -212,6 +212,9 @@ template <> void QuokkaSimulation<SedovProblem>::computeAfterEvolve(amrex::Vecto
 	}
 }
 
+// Demo only: an unused parameter, so clang-tidy has a warning to post.
+auto demo_clang_tidy_warning(int unused_value) -> int { return 0; }
+
 auto problem_main() -> int
 {
 	auto BCs_cc = simulate_full_box ? quokka::BC<SedovProblem>(quokka::BCType::int_dir) : quokka::BC<SedovProblem>(quokka::BCType::reflecting);
