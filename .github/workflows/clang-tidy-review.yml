@@ -1,9 +1,9 @@
-name: 🧹 clang-tidy-review
+# Runs clang-tidy on the lines a PR changes, and fails if it finds any warnings.
+# The warnings are posted as PR comments by clang-tidy-post-comments.yml, which finds this workflow by its name.
+name: "clang-tidy: Review"
 
-# You can be more specific, but it currently only works on pull requests
-# Fiewer paths are ignored because some folders (e.g. scripts) are not relavent to code build but should be linted
-on:  
-  pull_request:  
+on:
+  pull_request:
 
 concurrency:
   group: ${{ github.ref }}-${{ github.head_ref }}-clang-tidy
@@ -13,20 +13,22 @@ jobs:
   check_changes:
     uses: ./.github/workflows/check_changes.yml
     with:
-      workflow_file: '.github/workflows/clang-tidy.yml'
+      workflow_file: '.github/workflows/clang-tidy-review.yml'
 
-  build:
+  clang-tidy:
     runs-on: ubuntu-latest
     needs: check_changes
+    # Scripts are not built, but are still linted.
     if: needs.check_changes.outputs.has_non_docs_changes == 'true' || needs.check_changes.outputs.has_scripts_changes == 'true'
-
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+    - name: Checkout the PR branch
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
       with:
         submodules: true
         fetch-depth: 0
 
-    - uses: ZedThree/clang-tidy-review@438014136def4cb6242e9d0ef3da1a1cd48fa7ce # v0.23.1
+    - name: Run clang-tidy on the changed lines
+      uses: ZedThree/clang-tidy-review@438014136def4cb6242e9d0ef3da1a1cd48fa7ce # v0.23.1
       id: review
       with:
         config_file: src/.clang-tidy
@@ -39,9 +41,9 @@ jobs:
         cmake_command: cmake . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DQUOKKA_PYTHON=ON -DQUOKKA_OPENPMD=ON -DopenPMD_USE_ADIOS2=OFF -DAMReX_SPACEDIM=3
         split_workflow: true
 
-    # Uploads an artefact containing clang_fixes.json
-    - uses: ZedThree/clang-tidy-review/upload@438014136def4cb6242e9d0ef3da1a1cd48fa7ce # v0.23.1
+    - name: Upload the warnings for the comments workflow
+      uses: ZedThree/clang-tidy-review/upload@438014136def4cb6242e9d0ef3da1a1cd48fa7ce # v0.23.1
 
-    # If there are any comments, fail the check
-    - if: steps.review.outputs.total_comments > 0
+    - name: Fail if there are any warnings
+      if: steps.review.outputs.total_comments > 0
       run: exit 1

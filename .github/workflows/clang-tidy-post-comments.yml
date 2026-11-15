@@ -1,0 +1,27 @@
+# Posts the warnings found by clang-tidy-review.yml as PR comments.
+# This runs as a separate workflow so it can comment on PRs from forks.
+name: "clang-tidy: Post Comments"
+
+on:
+  workflow_run:
+    # Must match the name of clang-tidy-review.yml exactly.
+    workflows: ["clang-tidy: Review"]
+    types:
+      - completed
+
+jobs:
+  post-comments:
+    # A cancelled review uploads no warnings, so there is nothing to post.
+    if: github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - name: Post the warnings as PR comments
+        uses: ZedThree/clang-tidy-review/post@438014136def4cb6242e9d0ef3da1a1cd48fa7ce # v0.23.1
+        with:
+          lgtm_comment_body: ''
+          annotations: false
+          max_comments: 10
+          num_comments_as_exitcode: false
