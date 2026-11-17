@@ -13,6 +13,8 @@
 
 #include "main.hpp"
 
+static int annotationTestValue(int value) { return value * 2; }
+
 auto main(int argc, char **argv) -> int
 {
 	/// Initialization (copied from ExaWind)
