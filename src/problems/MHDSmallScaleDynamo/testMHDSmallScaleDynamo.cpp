@@ -17,9 +17,14 @@
 #include "AMReX_GpuDevice.H"
 #include "AMReX_MultiFab.H"
 #include "AMReX_REAL.H"
+#include "AMReX_Random.H"
+#ifdef AMREX_USE_FFT
+#include "AMReX_FFT.H"
+#endif
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <memory>
 #include <random>
 #include <utility>
 #include <vector>
@@ -155,6 +160,142 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE auto evaluate_perturbation_vecpot(amrex::Gpu
 	return vecpot_value;
 }
 
+// peak of the shell-integrated k^4 magnetic spectrum, in integer wavenumbers; zero selects the ABC seed
+double helical_seed_peak_wavenumber = 0.0;			// NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+std::unique_ptr<amrex::MultiFab> helical_seed_vecpot = nullptr; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+// component axis of the discrete curl, at the face with the same index as cell (i, j, k)
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE auto evaluate_discrete_curl(amrex::Array4<const amrex::Real> const &vecpot, const int axis, const int i, const int j,
+								const int k, amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const &dx) -> double
+{
+	if (axis == 0) {
+		return ((vecpot(i, j + 1, k, 2) - vecpot(i, j, k, 2)) / dx[1]) - ((vecpot(i, j, k + 1, 1) - vecpot(i, j, k, 1)) / dx[2]);
+	}
+	if (axis == 1) {
+		return ((vecpot(i, j, k + 1, 0) - vecpot(i, j, k, 0)) / dx[2]) - ((vecpot(i + 1, j, k, 2) - vecpot(i, j, k, 2)) / dx[0]);
+	}
+	return ((vecpot(i + 1, j, k, 1) - vecpot(i, j, k, 1)) / dx[0]) - ((vecpot(i, j + 1, k, 0) - vecpot(i, j, k, 0)) / dx[1]);
+}
+
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE auto signed_wavenumber(const int index, const int num_cells) -> int
+{
+	if ((2 * index) > num_cells) {
+		return index - num_cells;
+	}
+	return index;
+}
+
+#ifdef AMREX_USE_FFT
+// edge-centred vector potential of a Gaussian random, fully helical field with M(k) ~ k^4 exp(-2 k^2 / k_peak^2)
+auto build_helical_seed_vecpot(amrex::Geometry const &geometry, amrex::BoxArray const &box_array, amrex::DistributionMapping const &distribution_map)
+    -> std::unique_ptr<amrex::MultiFab>
+{
+	using SpectralMultiFab = amrex::FabArray<amrex::BaseFab<amrex::GpuComplex<amrex::Real>>>;
+	const amrex::Box domain = geometry.Domain();
+	const amrex::GpuArray<int, 3> num_cells = {domain.length(0), domain.length(1), domain.length(2)};
+	const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx = geometry.CellSizeArray();
+	const double cutoff_wavenumber = helical_seed_peak_wavenumber / std::sqrt(2.0);
+	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(2.0 * helical_seed_peak_wavenumber < num_cells[0],
+					 "setup.helical_seed_peak_wavenumber must lie below the Nyquist wavenumber");
+	amrex::MultiFab noise(box_array, distribution_map, 3, 0);
+	for (amrex::MFIter iter(noise); iter.isValid(); ++iter) {
+		const amrex::Array4<amrex::Real> noise_array = noise.array(iter);
+		amrex::ParallelForRNG(iter.validbox(), 3, [=] AMREX_GPU_DEVICE(int i, int j, int k, int component, amrex::RandomEngine const &engine) {
+			noise_array(i, j, k, component) = amrex::RandomNormal(0.0, 1.0, engine);
+		});
+	}
+	amrex::Gpu::streamSynchronize();
+	amrex::FFT::R2C<amrex::Real, amrex::FFT::Direction::both> transform(domain);
+	const auto [spectral_box_array, spectral_distribution_map] = transform.getSpectralDataLayout();
+	SpectralMultiFab noise_spectrum(spectral_box_array, spectral_distribution_map, 3, 0);
+	SpectralMultiFab vecpot_spectrum(spectral_box_array, spectral_distribution_map, 3, 0);
+	for (int component = 0; component < 3; ++component) {
+		transform.forward(noise, noise_spectrum, component, component);
+	}
+	for (amrex::MFIter iter(noise_spectrum); iter.isValid(); ++iter) {
+		const auto noise_array = noise_spectrum.const_array(iter);
+		const auto vecpot_array = vecpot_spectrum.array(iter);
+		amrex::ParallelFor(iter.validbox(), [=] AMREX_GPU_DEVICE(int i, int j, int k) {
+			const amrex::GpuArray<int, 3> integer_wavevector = {signed_wavenumber(i, num_cells[0]), signed_wavenumber(j, num_cells[1]),
+									    signed_wavenumber(k, num_cells[2])};
+			const int squared_wavenumber = (integer_wavevector[0] * integer_wavevector[0]) + (integer_wavevector[1] * integer_wavevector[1]) +
+						       (integer_wavevector[2] * integer_wavevector[2]);
+			const bool mode_is_nyquist = ((2 * std::abs(integer_wavevector[0])) == num_cells[0]) ||
+						     ((2 * std::abs(integer_wavevector[1])) == num_cells[1]) ||
+						     ((2 * std::abs(integer_wavevector[2])) == num_cells[2]);
+			if ((squared_wavenumber == 0) || mode_is_nyquist) {
+				for (int component = 0; component < 3; ++component) {
+					vecpot_array(i, j, k, component) = amrex::GpuComplex<amrex::Real>(0.0, 0.0);
+				}
+				return;
+			}
+			amrex::GpuArray<double, 3> discrete_wavevector{};
+			amrex::GpuArray<amrex::GpuComplex<amrex::Real>, 3> half_cell_shift{};
+			for (int axis = 0; axis < 3; ++axis) {
+				const double half_cell_phase = M_PI * integer_wavevector[axis] / num_cells[axis];
+				discrete_wavevector[axis] = 2.0 * std::sin(half_cell_phase) / dx[axis];
+				half_cell_shift[axis] = amrex::GpuComplex<amrex::Real>(std::cos(half_cell_phase), std::sin(half_cell_phase));
+			}
+			const double discrete_norm =
+			    std::sqrt((discrete_wavevector[0] * discrete_wavevector[0]) + (discrete_wavevector[1] * discrete_wavevector[1]) +
+				      (discrete_wavevector[2] * discrete_wavevector[2]));
+			const amrex::GpuArray<double, 3> unit_wavevector = {discrete_wavevector[0] / discrete_norm, discrete_wavevector[1] / discrete_norm,
+									    discrete_wavevector[2] / discrete_norm};
+			const amrex::GpuArray<amrex::GpuComplex<amrex::Real>, 3> noise_mode = {noise_array(i, j, k, 0), noise_array(i, j, k, 1),
+											       noise_array(i, j, k, 2)};
+			const amrex::GpuComplex<amrex::Real> longitudinal =
+			    (noise_mode[0] * unit_wavevector[0]) + (noise_mode[1] * unit_wavevector[1]) + (noise_mode[2] * unit_wavevector[2]);
+			const amrex::GpuArray<amrex::GpuComplex<amrex::Real>, 3> transverse = {noise_mode[0] - (longitudinal * unit_wavevector[0]),
+											       noise_mode[1] - (longitudinal * unit_wavevector[1]),
+											       noise_mode[2] - (longitudinal * unit_wavevector[2])};
+			const amrex::GpuArray<amrex::GpuComplex<amrex::Real>, 3> rotated = {
+			    (transverse[2] * unit_wavevector[1]) - (transverse[1] * unit_wavevector[2]),
+			    (transverse[0] * unit_wavevector[2]) - (transverse[2] * unit_wavevector[0]),
+			    (transverse[1] * unit_wavevector[0]) - (transverse[0] * unit_wavevector[1])};
+			const double envelope = std::exp(-0.5 * squared_wavenumber / (cutoff_wavenumber * cutoff_wavenumber));
+			const amrex::GpuComplex<amrex::Real> imaginary_unit(0.0, 1.0);
+			for (int component = 0; component < 3; ++component) {
+				vecpot_array(i, j, k, component) =
+				    (transverse[component] + (imaginary_unit * rotated[component])) * half_cell_shift[component] * envelope;
+			}
+		});
+	}
+	amrex::Gpu::streamSynchronize();
+	auto vecpot = std::make_unique<amrex::MultiFab>(box_array, distribution_map, 3, 2);
+	for (int component = 0; component < 3; ++component) {
+		transform.backward(vecpot_spectrum, *vecpot, component, component);
+	}
+	vecpot->FillBoundary(geometry.periodicity());
+	const auto vecpot_arrays = vecpot->const_arrays();
+	amrex::Real summed_b_squared = amrex::ParReduce(amrex::TypeList<amrex::ReduceOpSum>{}, amrex::TypeList<amrex::Real>{}, *vecpot, amrex::IntVect(0),
+							[=] AMREX_GPU_DEVICE(int box_index, int i, int j, int k) -> amrex::GpuTuple<amrex::Real> {
+								const auto vecpot_array = vecpot_arrays[box_index];
+								const double b_x = evaluate_discrete_curl(vecpot_array, 0, i, j, k, dx);
+								const double b_y = evaluate_discrete_curl(vecpot_array, 1, i, j, k, dx);
+								const double b_z = evaluate_discrete_curl(vecpot_array, 2, i, j, k, dx);
+								return {(b_x * b_x) + (b_y * b_y) + (b_z * b_z)};
+							});
+	amrex::ParallelDescriptor::ReduceRealSum(summed_b_squared);
+	const double measured_b_rms = std::sqrt(summed_b_squared / static_cast<double>(domain.numPts()));
+	const double target_b_rms = std::sqrt(seed_b_fraction) * target_vdisp;
+	vecpot->mult(target_b_rms / measured_b_rms, 0, 3, 2);
+	return vecpot;
+}
+#endif
+
+template <> void QuokkaSimulation<MHDSmallScaleDynamo>::preCalculateInitialConditions()
+{
+	if (helical_seed_peak_wavenumber <= 0.0) {
+		return;
+	}
+	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(max_level == 0, "setup.helical_seed_peak_wavenumber supports a single AMR level");
+#ifdef AMREX_USE_FFT
+	helical_seed_vecpot = build_helical_seed_vecpot(geom[0], state_new_cc_[0].boxArray(), state_new_cc_[0].DistributionMap());
+#else
+	amrex::Abort("setup.helical_seed_peak_wavenumber needs a build configured with -DAMReX_FFT=ON");
+#endif
+}
+
 // we initialise the magnetic field using an ABC (Arnold-Beltrami-Childress) seed field:
 // a force-free, maximally helical field defined as the (discrete) curl of a sinusoidal vector potential.
 // the general ABC field has three independent amplitudes (per spatial axis); here we choose them to be equal.
@@ -172,6 +313,19 @@ template <> void QuokkaSimulation<MHDSmallScaleDynamo>::setInitialConditionsOnGr
 	const double seed_vecpot_amplitude = std::sqrt(seed_b_fraction / 3.0) * target_vdisp / seed_wavenumber;
 
 	constexpr int b_index = Physics_Indices<MHDSmallScaleDynamo>::mhdFirstIndex;
+	if (helical_seed_vecpot != nullptr) {
+		const amrex::Box cell_box = amrex::enclosedCells(indexRange);
+		const int axis = static_cast<int>(dir);
+		for (const int box_index : helical_seed_vecpot->IndexArray()) {
+			if (helical_seed_vecpot->boxArray()[box_index] == cell_box) {
+				const amrex::Array4<const amrex::Real> vecpot = helical_seed_vecpot->const_array(box_index);
+				amrex::ParallelFor(indexRange, [=] AMREX_GPU_DEVICE(int i, int j, int k) {
+					state_fc(i, j, k, b_index) = evaluate_discrete_curl(vecpot, axis, i, j, k, dx);
+				});
+			}
+		}
+		return;
+	}
 	const amrex::GpuArray<VecpotPerturbationMode, max_perturbation_modes> modes = perturbation_modes;
 	const int num_modes = num_perturbation_modes;
 
@@ -231,6 +385,11 @@ auto problem_main() -> int
 	pp.query("seed_b_wavenumber", seed_b_wavenumber);
 	pp.query("seed_b_fraction", seed_b_fraction);
 	pp.query("seed_b_perturbation_fraction", seed_b_perturbation_fraction);
+	pp.query("helical_seed_peak_wavenumber", helical_seed_peak_wavenumber);
+	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(helical_seed_peak_wavenumber >= 0.0, "setup.helical_seed_peak_wavenumber must be non-negative");
+	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+	    (helical_seed_peak_wavenumber == 0.0) || (seed_b_perturbation_fraction == 0.0),
+	    "setup.helical_seed_peak_wavenumber replaces the ABC seed and cannot be combined with setup.seed_b_perturbation_fraction");
 	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(seed_b_perturbation_fraction >= 0.0, "setup.seed_b_perturbation_fraction must be non-negative");
 	AMREX_ALWAYS_ASSERT_WITH_MESSAGE((seed_b_perturbation_fraction == 0.0) || (seed_b_wavenumber >= 2),
 					 "setup.seed_b_perturbation_fraction > 0 needs setup.seed_b_wavenumber >= 2, so that modes exist below the seed");
@@ -284,6 +443,7 @@ auto problem_main() -> int
 	QuokkaSimulation<MHDSmallScaleDynamo> sim(BCs_cc, BCs_fc);
 
 	sim.setInitialConditions();
+	helical_seed_vecpot.reset();
 
 	sim.evolve();
 
