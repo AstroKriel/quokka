@@ -17,7 +17,12 @@
 #include "AMReX_GpuDevice.H"
 #include "AMReX_MultiFab.H"
 #include "AMReX_REAL.H"
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <random>
+#include <utility>
+#include <vector>
 
 struct MHDSmallScaleDynamo {};
 
@@ -63,6 +68,93 @@ int seed_b_wavenumber = 2;    // NOLINT(cppcoreguidelines-avoid-non-const-global
 double seed_b_fraction = 0.0; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 double target_vdisp = 0.0;    // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
+// rms of the perturbation field, as a fraction of the rms of the ABC seed field
+double seed_b_perturbation_fraction = 0.0; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+struct VecpotPerturbationMode {
+	amrex::GpuArray<double, 3> wavevector;
+	amrex::GpuArray<double, 3> amplitude;
+	double phase;
+};
+
+constexpr int max_perturbation_modes = 32;
+constexpr unsigned int perturbation_rng_seed = 42;
+amrex::GpuArray<VecpotPerturbationMode, max_perturbation_modes> perturbation_modes{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+int num_perturbation_modes = 0;							      // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+// random transverse plane waves in the vector potential, at integer wavevectors with 0 < |k| < seed_b_wavenumber
+void initialise_perturbation_modes(const double box_length)
+{
+	if (seed_b_perturbation_fraction <= 0.0) {
+		return;
+	}
+	const int max_component = seed_b_wavenumber - 1;
+	const int max_squared_wavenumber = seed_b_wavenumber * seed_b_wavenumber;
+	std::vector<amrex::GpuArray<int, 3>> candidate_wavevectors;
+	for (int kx = 0; kx <= max_component; ++kx) {
+		for (int ky = -max_component; ky <= max_component; ++ky) {
+			for (int kz = -max_component; kz <= max_component; ++kz) {
+				const int squared_wavenumber = (kx * kx) + (ky * ky) + (kz * kz);
+				const bool wavevector_is_in_half_space = (kx > 0) || ((kx == 0) && (ky > 0)) || ((kx == 0) && (ky == 0) && (kz > 0));
+				if (wavevector_is_in_half_space && (squared_wavenumber < max_squared_wavenumber)) {
+					candidate_wavevectors.push_back({kx, ky, kz});
+				}
+			}
+		}
+	}
+	std::mt19937 generator(perturbation_rng_seed);
+	const auto draw_uniform = [&generator]() -> double { return static_cast<double>(generator()) / 4294967296.0; };
+	const std::size_t num_candidates = candidate_wavevectors.size();
+	num_perturbation_modes = static_cast<int>(std::min(num_candidates, static_cast<std::size_t>(max_perturbation_modes)));
+	const double perturbation_b_rms = seed_b_perturbation_fraction * std::sqrt(seed_b_fraction) * target_vdisp;
+	const double mode_b_amplitude = perturbation_b_rms * std::sqrt(2.0 / num_perturbation_modes);
+	for (int mode_index = 0; mode_index < num_perturbation_modes; ++mode_index) {
+		const std::size_t mode_position = static_cast<std::size_t>(mode_index);
+		const std::size_t swap_position = mode_position + (generator() % (num_candidates - mode_position));
+		std::swap(candidate_wavevectors[mode_position], candidate_wavevectors[swap_position]);
+		const amrex::GpuArray<int, 3> integer_wavevector = candidate_wavevectors[mode_position];
+		const double wavenumber_scale = 2.0 * M_PI / box_length;
+		const amrex::GpuArray<double, 3> wavevector = {wavenumber_scale * integer_wavevector[0], wavenumber_scale * integer_wavevector[1],
+							       wavenumber_scale * integer_wavevector[2]};
+		const double wavenumber = std::sqrt((wavevector[0] * wavevector[0]) + (wavevector[1] * wavevector[1]) + (wavevector[2] * wavevector[2]));
+		amrex::GpuArray<double, 3> transverse_vector = {0.0, 0.0, 0.0};
+		double transverse_norm = 0.0;
+		while (transverse_norm < 1.0e-6 * wavenumber) {
+			const amrex::GpuArray<double, 3> random_vector = {(2.0 * draw_uniform()) - 1.0, (2.0 * draw_uniform()) - 1.0,
+									  (2.0 * draw_uniform()) - 1.0};
+			transverse_vector = {(wavevector[1] * random_vector[2]) - (wavevector[2] * random_vector[1]),
+					     (wavevector[2] * random_vector[0]) - (wavevector[0] * random_vector[2]),
+					     (wavevector[0] * random_vector[1]) - (wavevector[1] * random_vector[0])};
+			transverse_norm = std::sqrt((transverse_vector[0] * transverse_vector[0]) + (transverse_vector[1] * transverse_vector[1]) +
+						    (transverse_vector[2] * transverse_vector[2]));
+		}
+		const double vecpot_amplitude = mode_b_amplitude / wavenumber;
+		perturbation_modes[mode_index].wavevector = wavevector;
+		perturbation_modes[mode_index].amplitude = {vecpot_amplitude * transverse_vector[0] / transverse_norm,
+							    vecpot_amplitude * transverse_vector[1] / transverse_norm,
+							    vecpot_amplitude * transverse_vector[2] / transverse_norm};
+		perturbation_modes[mode_index].phase = 2.0 * M_PI * draw_uniform();
+	}
+}
+
+// evaluates one vector potential component at the centre of the cell edge aligned with that axis
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE auto evaluate_perturbation_vecpot(amrex::GpuArray<VecpotPerturbationMode, max_perturbation_modes> const &modes,
+								      const int num_modes, const int axis, const int edge_i, const int edge_j, const int edge_k,
+								      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const &prob_lo,
+								      amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> const &dx) -> double
+{
+	const double x_edge = prob_lo[0] + (edge_i + (0.5 * static_cast<double>(axis == 0))) * dx[0];
+	const double y_edge = prob_lo[1] + (edge_j + (0.5 * static_cast<double>(axis == 1))) * dx[1];
+	const double z_edge = prob_lo[2] + (edge_k + (0.5 * static_cast<double>(axis == 2))) * dx[2];
+	double vecpot_value = 0.0;
+	for (int mode_index = 0; mode_index < num_modes; ++mode_index) {
+		const VecpotPerturbationMode &mode = modes[mode_index];
+		const double wave_phase = (mode.wavevector[0] * x_edge) + (mode.wavevector[1] * y_edge) + (mode.wavevector[2] * z_edge) + mode.phase;
+		vecpot_value += mode.amplitude[axis] * std::cos(wave_phase);
+	}
+	return vecpot_value;
+}
+
 // we initialise the magnetic field using an ABC (Arnold-Beltrami-Childress) seed field:
 // a force-free, maximally helical field defined as the (discrete) curl of a sinusoidal vector potential.
 // the general ABC field has three independent amplitudes (per spatial axis); here we choose them to be equal.
@@ -80,8 +172,13 @@ template <> void QuokkaSimulation<MHDSmallScaleDynamo>::setInitialConditionsOnGr
 	const double seed_vecpot_amplitude = std::sqrt(seed_b_fraction / 3.0) * target_vdisp / seed_wavenumber;
 
 	constexpr int b_index = Physics_Indices<MHDSmallScaleDynamo>::mhdFirstIndex;
+	const amrex::GpuArray<VecpotPerturbationMode, max_perturbation_modes> modes = perturbation_modes;
+	const int num_modes = num_perturbation_modes;
 
 	amrex::ParallelFor(indexRange, [=] AMREX_GPU_DEVICE(int i, int j, int k) {
+		const auto perturbation = [&](const int axis, const int edge_i, const int edge_j, const int edge_k) -> double {
+			return evaluate_perturbation_vecpot(modes, num_modes, axis, edge_i, edge_j, edge_k, prob_lo, dx);
+		};
 		if (dir == quokka::direction::x) {
 			// x-face: B_x = dA_z/dy - dA_y/dz
 			const double x_face = prob_lo[0] + i * dx[0];
@@ -93,7 +190,9 @@ template <> void QuokkaSimulation<MHDSmallScaleDynamo>::setInitialConditionsOnGr
 			const double vecpot_z_at_y_lo = seed_vecpot_amplitude * (std::sin(seed_wavenumber * y_lo) + std::cos(seed_wavenumber * x_face));
 			const double vecpot_y_at_z_hi = seed_vecpot_amplitude * (std::sin(seed_wavenumber * x_face) + std::cos(seed_wavenumber * z_hi));
 			const double vecpot_y_at_z_lo = seed_vecpot_amplitude * (std::sin(seed_wavenumber * x_face) + std::cos(seed_wavenumber * z_lo));
-			state_fc(i, j, k, b_index) = (vecpot_z_at_y_hi - vecpot_z_at_y_lo) / dx[1] - (vecpot_y_at_z_hi - vecpot_y_at_z_lo) / dx[2];
+			state_fc(i, j, k, b_index) = (vecpot_z_at_y_hi - vecpot_z_at_y_lo) / dx[1] - (vecpot_y_at_z_hi - vecpot_y_at_z_lo) / dx[2] +
+						     (perturbation(2, i, j + 1, k) - perturbation(2, i, j, k)) / dx[1] -
+						     (perturbation(1, i, j, k + 1) - perturbation(1, i, j, k)) / dx[2];
 		} else if (dir == quokka::direction::y) {
 			// y-face: B_y = dA_x/dz - dA_z/dx
 			const double y_face = prob_lo[1] + j * dx[1];
@@ -105,7 +204,9 @@ template <> void QuokkaSimulation<MHDSmallScaleDynamo>::setInitialConditionsOnGr
 			const double vecpot_x_at_z_lo = seed_vecpot_amplitude * (std::sin(seed_wavenumber * z_lo) + std::cos(seed_wavenumber * y_face));
 			const double vecpot_z_at_x_hi = seed_vecpot_amplitude * (std::sin(seed_wavenumber * y_face) + std::cos(seed_wavenumber * x_hi));
 			const double vecpot_z_at_x_lo = seed_vecpot_amplitude * (std::sin(seed_wavenumber * y_face) + std::cos(seed_wavenumber * x_lo));
-			state_fc(i, j, k, b_index) = (vecpot_x_at_z_hi - vecpot_x_at_z_lo) / dx[2] - (vecpot_z_at_x_hi - vecpot_z_at_x_lo) / dx[0];
+			state_fc(i, j, k, b_index) = (vecpot_x_at_z_hi - vecpot_x_at_z_lo) / dx[2] - (vecpot_z_at_x_hi - vecpot_z_at_x_lo) / dx[0] +
+						     (perturbation(0, i, j, k + 1) - perturbation(0, i, j, k)) / dx[2] -
+						     (perturbation(2, i + 1, j, k) - perturbation(2, i, j, k)) / dx[0];
 		} else if (dir == quokka::direction::z) {
 			// z-face: B_z = dA_y/dx - dA_x/dy
 			const double z_face = prob_lo[2] + k * dx[2];
@@ -117,7 +218,9 @@ template <> void QuokkaSimulation<MHDSmallScaleDynamo>::setInitialConditionsOnGr
 			const double vecpot_y_at_x_lo = seed_vecpot_amplitude * (std::sin(seed_wavenumber * x_lo) + std::cos(seed_wavenumber * z_face));
 			const double vecpot_x_at_y_hi = seed_vecpot_amplitude * (std::sin(seed_wavenumber * z_face) + std::cos(seed_wavenumber * y_hi));
 			const double vecpot_x_at_y_lo = seed_vecpot_amplitude * (std::sin(seed_wavenumber * z_face) + std::cos(seed_wavenumber * y_lo));
-			state_fc(i, j, k, b_index) = (vecpot_y_at_x_hi - vecpot_y_at_x_lo) / dx[0] - (vecpot_x_at_y_hi - vecpot_x_at_y_lo) / dx[1];
+			state_fc(i, j, k, b_index) = (vecpot_y_at_x_hi - vecpot_y_at_x_lo) / dx[0] - (vecpot_x_at_y_hi - vecpot_x_at_y_lo) / dx[1] +
+						     (perturbation(1, i + 1, j, k) - perturbation(1, i, j, k)) / dx[0] -
+						     (perturbation(0, i, j + 1, k) - perturbation(0, i, j, k)) / dx[1];
 		}
 	});
 }
@@ -127,6 +230,10 @@ auto problem_main() -> int
 	amrex::ParmParse const pp("setup");
 	pp.query("seed_b_wavenumber", seed_b_wavenumber);
 	pp.query("seed_b_fraction", seed_b_fraction);
+	pp.query("seed_b_perturbation_fraction", seed_b_perturbation_fraction);
+	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(seed_b_perturbation_fraction >= 0.0, "setup.seed_b_perturbation_fraction must be non-negative");
+	AMREX_ALWAYS_ASSERT_WITH_MESSAGE((seed_b_perturbation_fraction == 0.0) || (seed_b_wavenumber >= 2),
+					 "setup.seed_b_perturbation_fraction > 0 needs setup.seed_b_wavenumber >= 2, so that modes exist below the seed");
 	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(seed_b_wavenumber > 0, "setup.seed_b_wavenumber must be a positive integer");
 	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(seed_b_fraction > 0.0,
 					 "setup.seed_b_fraction must be a positive value; the default of 0 runs with zero magnetic seed field (pure-hydro)");
@@ -147,6 +254,7 @@ auto problem_main() -> int
 					     std::abs(box_length - (prob_hi_vec[2] - prob_lo_vec[2])) < 1e-10 * box_length,
 					 "geometry.prob_hi - geometry.prob_lo must be equal in all three dimensions; both the seed field and "
 					 "turbulence driving assume a cubic box");
+	initialise_perturbation_modes(box_length);
 
 	double turbulence_length = 0.0;
 	pp_turb.query("length", turbulence_length);
