@@ -172,6 +172,8 @@ struct PowerRandomphaseHelParams {
 	double ncutoff = 1.0;
 	double relhel = 1.0;
 	int random_amplitude = 0;
+	// 1: A = A_z(x, y) z_hat from kz = 0 modes only, so B lies in the x-y plane and does not depend on z (no helicity)
+	int planar_field = 0;
 };
 
 PowerRandomphaseHelParams helical_seed_params{};			     // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
@@ -228,7 +230,13 @@ auto makeVectorPotential_PowerRandomphaseHel(amrex::Geometry const &geometry, am
 	const amrex::GpuArray<int, 3> num_cells = {domain.length(0), domain.length(1), domain.length(2)};
 	const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx = geometry.CellSizeArray();
 	const PowerRandomphaseHelParams params = helical_seed_params;
-	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(2.0 * params.kpeak < num_cells[0], "setup.helical_seed_kpeak must lie below the Nyquist wavenumber");
+	// wavenumbers are measured in units of 2 pi / L_x, so integer index n_axis along an axis of length L_axis is n_axis L_x / L_axis
+	const amrex::GpuArray<double, 3> wavenumber_unit_ratio = {1.0, geometry.ProbLength(0) / geometry.ProbLength(1),
+								  geometry.ProbLength(0) / geometry.ProbLength(2)};
+	for (int axis = 0; axis < 3; ++axis) {
+		AMREX_ALWAYS_ASSERT_WITH_MESSAGE(2.0 * params.kpeak < num_cells[axis] * wavenumber_unit_ratio[axis],
+						 "setup.helical_seed_kpeak must lie below the Nyquist wavenumber of every axis");
+	}
 	amrex::MultiFab noise(box_array, distribution_map, 3, 0);
 	for (amrex::MFIter iter(noise); iter.isValid(); ++iter) {
 		const amrex::Array4<amrex::Real> noise_a4 = noise.array(iter);
@@ -250,12 +258,16 @@ auto makeVectorPotential_PowerRandomphaseHel(amrex::Geometry const &geometry, am
 		amrex::ParallelFor(iter.validbox(), [=] AMREX_GPU_DEVICE(int i, int j, int k) {
 			const amrex::GpuArray<int, 3> integer_wavevector = {computeSignedWavenumber(i, num_cells[0]), computeSignedWavenumber(j, num_cells[1]),
 									    computeSignedWavenumber(k, num_cells[2])};
-			const int squared_wavenumber = (integer_wavevector[0] * integer_wavevector[0]) + (integer_wavevector[1] * integer_wavevector[1]) +
-						       (integer_wavevector[2] * integer_wavevector[2]);
+			double squared_wavenumber = 0.0;
+			for (int axis = 0; axis < 3; ++axis) {
+				const double wavenumber_component = integer_wavevector[axis] * wavenumber_unit_ratio[axis];
+				squared_wavenumber += wavenumber_component * wavenumber_component;
+			}
 			const bool mode_is_nyquist = ((2 * std::abs(integer_wavevector[0])) == num_cells[0]) ||
 						     ((2 * std::abs(integer_wavevector[1])) == num_cells[1]) ||
 						     ((2 * std::abs(integer_wavevector[2])) == num_cells[2]);
-			if ((squared_wavenumber == 0) || mode_is_nyquist) {
+			const bool mode_is_out_of_plane = (params.planar_field == 1) && (integer_wavevector[2] != 0);
+			if ((squared_wavenumber == 0.0) || mode_is_nyquist || mode_is_out_of_plane) {
 				for (int component = 0; component < 3; ++component) {
 					vector_potential_a4(i, j, k, component) = amrex::GpuComplex<amrex::Real>(0.0, 0.0);
 				}
@@ -288,7 +300,13 @@ auto makeVectorPotential_PowerRandomphaseHel(amrex::Geometry const &geometry, am
 			    (transverse[2] * unit_wavevector[1]) - (transverse[1] * unit_wavevector[2]),
 			    (transverse[0] * unit_wavevector[2]) - (transverse[2] * unit_wavevector[0]),
 			    (transverse[1] * unit_wavevector[0]) - (transverse[0] * unit_wavevector[1])};
-			const double amplitude = computeModeAmplitude_PowerRandomphaseHel(params, static_cast<double>(squared_wavenumber));
+			const double amplitude = computeModeAmplitude_PowerRandomphaseHel(params, squared_wavenumber);
+			if (params.planar_field == 1) {
+				vector_potential_a4(i, j, k, 0) = amrex::GpuComplex<amrex::Real>(0.0, 0.0);
+				vector_potential_a4(i, j, k, 1) = amrex::GpuComplex<amrex::Real>(0.0, 0.0);
+				vector_potential_a4(i, j, k, 2) = noise_mode[2] * half_cell_shift[2] * amplitude;
+				return;
+			}
 			const amrex::GpuComplex<amrex::Real> helical_factor(0.0, params.relhel);
 			for (int component = 0; component < 3; ++component) {
 				vector_potential_a4(i, j, k, component) =
@@ -433,6 +451,9 @@ auto problem_main() -> int
 	pp.query("helical_seed_ncutoff", helical_seed_params.ncutoff);
 	pp.query("helical_seed_relhel", helical_seed_params.relhel);
 	pp.query("helical_seed_random_amplitude", helical_seed_params.random_amplitude);
+	pp.query("helical_seed_planar_field", helical_seed_params.planar_field);
+	AMREX_ALWAYS_ASSERT_WITH_MESSAGE((helical_seed_params.planar_field == 0) || (helical_seed_params.relhel == 0.0),
+					 "setup.helical_seed_planar_field = 1 builds a field with no helicity; set setup.helical_seed_relhel = 0");
 	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(helical_seed_params.kpeak >= 0.0, "setup.helical_seed_kpeak must be non-negative");
 	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(helical_seed_params.nfact > 0.0, "setup.helical_seed_nfact must be positive");
 	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(std::abs(helical_seed_params.relhel) <= 1.0, "setup.helical_seed_relhel must lie in [-1, 1]");
@@ -457,10 +478,14 @@ auto problem_main() -> int
 	pp_geom.getarr("prob_lo", prob_lo_vec);
 	pp_geom.getarr("prob_hi", prob_hi_vec);
 	const double box_length = prob_hi_vec[0] - prob_lo_vec[0];
-	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(std::abs(box_length - (prob_hi_vec[1] - prob_lo_vec[1])) < 1e-10 * box_length &&
-					     std::abs(box_length - (prob_hi_vec[2] - prob_lo_vec[2])) < 1e-10 * box_length,
-					 "geometry.prob_hi - geometry.prob_lo must be equal in all three dimensions; both the seed field and "
-					 "turbulence driving assume a cubic box");
+	const bool box_is_cubic = (std::abs(box_length - (prob_hi_vec[1] - prob_lo_vec[1])) < 1e-10 * box_length) &&
+				  (std::abs(box_length - (prob_hi_vec[2] - prob_lo_vec[2])) < 1e-10 * box_length);
+	int turbulence_enabled = 0;
+	pp_turb.query("enabled", turbulence_enabled);
+	const bool box_may_be_noncubic = (helical_seed_params.kpeak > 0.0) && (turbulence_enabled == 0);
+	AMREX_ALWAYS_ASSERT_WITH_MESSAGE(box_is_cubic || box_may_be_noncubic,
+					 "geometry.prob_hi - geometry.prob_lo must be equal in all three dimensions; the ABC seed field and "
+					 "turbulence driving assume a cubic box (only setup.helical_seed_kpeak without driving supports a non-cubic box)");
 	initializePerturbationModes(box_length);
 
 	double turbulence_length = 0.0;
