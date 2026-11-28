@@ -241,7 +241,8 @@ Before posting, check: reading **only** the Verdict line, does a maintainer know
 ### Step 7: Post the comment
 
 ```bash
-gh pr comment <pr-number> --body-file <review-dir>/<folder>/<folder>-COMMENT.md
+gh pr comment <pr-number> \
+    --body-file <review-dir>/<folder>/<folder>-COMMENT.md
 ```
 
 Then provide a summary of one or two sentences in the chat.

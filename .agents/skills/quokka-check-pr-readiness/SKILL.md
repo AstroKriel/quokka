@@ -14,7 +14,8 @@ Check that a PR has what a maintainer needs before reviewing starts.
 ## Run the checks
 
 ```bash
-python3 .agents/skills/quokka-check-pr-readiness/scripts/check_pr_readiness.py <pr-number>
+python3 .agents/skills/quokka-check-pr-readiness/scripts/check_pr_readiness.py \
+    <pr-number>
 ```
 
 It prints one row per check and exits 0 when every check passes.

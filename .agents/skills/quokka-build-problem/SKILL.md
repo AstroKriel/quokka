@@ -75,8 +75,14 @@ nvidia-smi -L 2>/dev/null || rocm-smi --showid 2>/dev/null || ls /dev/kfd 2>/dev
 Run `quokka config` again after every checkout or submodule update, then build:
 
 ```bash
-quokka config -d <preset> --delete --source default --root <repo-root> -DQUOKKA_PYTHON=OFF
-quokka build -d <preset> <Problem> --source default --root <repo-root>
+quokka config -d <preset> \
+    --delete \
+    --source default \
+    --root <repo-root> \
+    -DQUOKKA_PYTHON=OFF
+quokka build -d <preset> <Problem> \
+    --source default \
+    --root <repo-root>
 ```
 
 For the GPU build, run the same two commands with `-d <num-dims>d-<suffix>`, for example `-d 3d-cuda`.

@@ -59,7 +59,8 @@ For an audit issue, write one line per finding instead: `**Finding N:** valid / 
 ## Post the comment
 
 ```bash
-gh issue comment <issue-number> --body-file <review-dir>/issue<issue-number>-<short-name>/issue<issue-number>-<short-name>-COMMENT.md
+gh issue comment <issue-number> \
+    --body-file <review-dir>/issue<issue-number>-<short-name>/issue<issue-number>-<short-name>-COMMENT.md
 ```
 
 Then provide a summary of one or two sentences in the chat.
