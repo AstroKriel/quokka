@@ -31,9 +31,9 @@ An instruction sets the scope of the review:
 
 ## Comments
 
-Post every PR and issue comment with `--body-file`, never with an inline `--body "…"`: in an inline body, the shell substitutes away backticks and `$`, which review comments are full of. End every comment with the fixed line `🤖 AI-assisted review`.
+Post every PR and issue comment with `--body-file`, never with an inline `--body "..."`: in an inline body, the shell substitutes away backticks and `$`, which review comments are full of. End every comment with the fixed line `🤖 AI-assisted review`.
 
-**Exception:** a `/azp run …` comment that triggers CI is posted exactly as written, with no footer, because Azure Pipelines only responds to the exact command text.
+**Exception:** a `/azp run ...` comment that triggers CI is posted exactly as written, with no footer, because Azure Pipelines only responds to the exact command text.
 
 ## Set up (once per session)
 
@@ -195,7 +195,7 @@ Write the comment to a separate file, `<folder>-COMMENT.md`:
 
 | Step | Command | Commit | Result |
 |---|---|---|---|
-| … | … | … | … |
+| ... | ... | ... | ... |
 
 </details>
 
@@ -217,7 +217,7 @@ For example, one finding:
 
 Before posting, check: reading **only** the Verdict line, does a maintainer know what to do next? If not, rewrite that line.
 
-**Follow-up rounds (v2, v3, …):** re-read the code at every carried-over `<file>:<line>` and drop findings whose code is gone. A round where everything was fixed is three lines: verdict, what you re-ran, what still stands.
+**Follow-up rounds (v2, v3, ...):** re-read the code at every carried-over `<file>:<line>` and drop findings whose code is gone. A round where everything was fixed is three lines: verdict, what you re-ran, what still stands.
 
 ### Step 7: Post the comment
 
