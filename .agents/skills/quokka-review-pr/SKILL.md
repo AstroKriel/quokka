@@ -35,12 +35,23 @@ echo "$(git rev-parse --path-format=absolute --git-common-dir)/quokka-review"
 
 | Step | Skill |
 |---|---|
+| Check that the PR is ready for review | `quokka-check-pr-readiness` |
 | Check out the PR and the default branch on throwaway branches, and clean up after | `quokka-checkout-pr-and-default` |
 | Build a problem with the right preset | `quokka-build-problem` |
 | Run a built problem | `quokka-run-problem` |
 | Read the output against the default branch | `quokka-assess-pr-results` |
 
+## What this review is for
+
+This review is the baseline a maintainer reads before reviewing the PR themselves. It settles what can be settled by building, running and reading, with evidence for each finding, and states what it leaves to the maintainer. It never approves a PR: only a person does.
+
 ## Reviewing a Pull Request
+
+### Step 0: Readiness
+
+Run `quokka-check-pr-readiness`. If a GPU test is missing and you can trigger it, post the `/azp run` command yourself (see **Comments**) rather than list it as a finding.
+
+If the PR is not ready for any other reason, stop: post its readiness table as the comment, with the verdict `not ready for review` and one line per missing item, and do not review further. Readiness is the author's side and correctness is the review's; a draft or an incomplete PR gets the short note, not a full review.
 
 ### Step 1: Read and classify
 
@@ -59,6 +70,17 @@ Derive a kebab-case `<slug>` from the title, such as `fix-amr-regrid` from "Fix 
 When in doubt use the **bug fix** cycle; it is stricter.
 
 Scan the diff for `AMREX_GPU_DEVICE`, `amrex::ParallelFor`, or changes to `simulation.hpp` / `QuokkaSimulation.hpp`; those make the GPU build mandatory.
+
+List the claims the PR description makes. Each kind of claim sets the evidence the review needs:
+
+| Claim | Evidence needed |
+|---|---|
+| Fixes a bug, or makes a run robust | the failure on the default branch, the same scenario passing on the PR, and one unaffected case (RED, GREEN, EDGE) |
+| Improves accuracy, or an order of convergence | a convergence test at three or more resolutions, on both branches |
+| Improves performance | run time and memory on both branches, on the same machine and inputs |
+| Adds a feature | each SPEC item verified, failed or not testable |
+
+A claim with no evidence the review can produce, and none in the PR description, is a finding.
 
 **Before the first `quokka config`, read `quokka-build-problem`.** It sets up the environment, picks the preset, and holds the exact build commands.
 
@@ -86,7 +108,7 @@ Add the GPU build if Step 1 flagged device code. A passing CPU build does not cl
 
 Run one scenario the PR should not affect: an explicit configuration, a different code path, an adjacent feature. Confirm it records the same value it records on the base branch.
 
-Then go to **Reporting**.
+Then go to **Validating findings**.
 
 ---
 
@@ -111,6 +133,27 @@ Add the GPU build on the same rule as the bug-fix cycle.
 ### Step 4: EDGE
 
 Test one boundary the description does not cover, and run one existing adjacent test for regression.
+
+Then go to **Validating findings**.
+
+---
+
+## Validating findings
+
+Before anything is written up, check each finding again, on its own:
+
+1. Re-read the code at its `file:line` on the PR head, not from memory of the diff.
+2. Confirm the evidence behind it: a run, a build or a number recorded in the evidence table, or a quoted line of code.
+3. Keep it only if both hold. A finding that cannot be confirmed is dropped, not softened.
+
+Where the tool allows it, give each finding to a fresh agent with only the PR description, the finding and its evidence, so that the check does not inherit the reasoning that produced it.
+
+Do not report:
+
+- issues that were already on the default branch, beyond one row marked `no` in the last column;
+- anything a linter or formatter would catch, or that CI already reports;
+- style, naming or taste, unless it breaks a rule written in `AGENTS.md` or `CLAUDE.md`;
+- AMReX performance advisories, unless the PR is about grid decomposition.
 
 Then go to **Reporting**.
 
@@ -153,15 +196,17 @@ The report holds, in this order:
 
 3. **Findings:** a table with one row per finding, the same as in the comment.
 4. **One subsection per finding that needs explaining:** the root cause with `file:line` for a bug fix, or the match against the design for a feature. Derivations, parameter sweeps and raw numbers go here.
-5. **Pre-existing issues:** a bullet list.
+5. **Left for the reviewer:** a bullet list of what the review did not settle, such as whether the physics is right, design choices, and claims it could not test.
+6. **Pre-existing issues:** a bullet list.
 
 ### 2. Comment
 
 A separate file, `<folder>-COMMENT.md`:
 
 ```markdown
-**Verdict:** <ship it | N blocking | cannot verify X>
+**Verdict:** <ready for maintainer review | N blocking | cannot verify X>
 **Checked:** <preset and problems built, tests run> at `<short-sha>`
+**Left for the reviewer:** <what the review did not settle, in one line>
 
 | Finding | Where | Evidence | Blocks merge |
 |---|---|---|---|
@@ -184,14 +229,14 @@ For example, one finding:
 |---|---|---|---|
 | `num_periods` is not validated | 7 problem files | `num_periods=0` or `=-1` runs zero steps and reports PASS at error norm 6.37e-18 | yes |
 
-1. **Verdict first.** Line 1 is the conclusion a maintainer acts on.
+1. **Verdict first.** Line 1 is the conclusion a maintainer acts on. The verdict is one of: `ready for maintainer review` (no blocking findings), `N blocking`, `cannot verify X`, or `not ready for review` (from Step 0). Never write "ship it" or approve: only a person approves.
 2. **One row per finding,** at most 5, worst first, with the rows that block merging before the rest. Drop any finding whose fix would not change what the author does. A pre-existing issue gets one row with `no` in the last column, or none.
 3. **Numbers, not adjectives.** `error norm 1.33e-09 vs tol 3e-03`, not "well within tolerance". Paste the real abort message.
 4. **A row holds the claim and its number, not the explanation.** An explanation that does not fit goes into the report as a subsection.
 5. **No preamble, no recap, no closer.** Start with the verdict, end with the table.
 6. **No findings is a complete answer.** Replace the table with `No findings.`
 
-Before posting, check: reading **only** the Verdict line, does a maintainer know whether to merge? If not, rewrite that line.
+Before posting, check: reading **only** the Verdict line, does a maintainer know what to do next? If not, rewrite that line.
 
 **Follow-up rounds (v2, v3, …):** re-read the code at every carried-over `file:line` and drop findings whose code is gone. A round where everything was fixed is three lines: verdict, what you re-ran, what still stands.
 
