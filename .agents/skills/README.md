@@ -13,5 +13,8 @@ Names follow `quokka-<verb>-<subject>`. Skills that are variants of the same tas
 | `quokka-build-problem` | build one problem with the right preset, on CPU or GPU |
 | `quokka-run-problem` | run a built problem with its inputs and parameter overrides |
 | `quokka-assess-pr-results` | assess the output of a PR against the default branch: what to weigh, what to ignore, marginal failures |
+| `quokka-assess-pr-performance` | assess the run time and memory of a PR against the default branch, on the same machine and inputs |
+| `quokka-debug-build-failure` | narrow down why a problem fails to configure or build |
+| `quokka-debug-run-failure` | narrow down why a problem crashes, aborts or gives a wrong result at run time |
 
 A new skill gets a row here, a folder in `.agents/skills/`, and a link in `.claude/skills/` (`ln -s ../../.agents/skills/<skill> .claude/skills/<skill>`).

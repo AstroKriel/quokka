@@ -40,6 +40,9 @@ echo "$(git rev-parse --path-format=absolute --git-common-dir)/quokka-review"
 | Build a problem with the right preset | `quokka-build-problem` |
 | Run a built problem | `quokka-run-problem` |
 | Read the output against the default branch | `quokka-assess-pr-results` |
+| Compare run time and memory, for a performance claim | `quokka-assess-pr-performance` |
+| Find the cause when a build fails | `quokka-debug-build-failure` |
+| Find the cause when a run crashes or gives a wrong result | `quokka-debug-run-failure` |
 
 ## What this review is for
 
