@@ -13,4 +13,4 @@ Ignore AMReX performance advisories: "grid blocking factor (N) is too small for 
 
 Weigh: convergence rates, error norms, SUCCESS/FAIL lines, actual abort messages.
 
-**Marginal failures.** An error norm within ~2× of its tolerance is not automatically the PR's fault. Compare against the base branch: near-identical norms both hovering at the threshold are tolerance noise, a pre-existing note. A norm that jumps an order of magnitude between base and PR is a regression even if it still passes.
+**Marginal failures.** An error norm within ~2× of its tolerance is not automatically the PR's fault. Compare against the default branch: near-identical norms both hovering at the threshold are tolerance noise, a pre-existing note. A norm that jumps an order of magnitude between the default branch and the PR is a regression even if it still passes.

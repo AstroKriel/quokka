@@ -5,7 +5,7 @@ description: "Check that a Quokka pull request is ready for review: out of draft
 
 # Check PR Readiness
 
-Readiness is about the author's side: whether the PR has what a reviewer needs before reviewing starts. It says nothing about whether the change is correct.
+Readiness is about the author's side: whether the PR has what a maintainer needs before reviewing starts. It says nothing about whether the change is correct.
 
 ## Run the checks
 
