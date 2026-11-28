@@ -9,14 +9,11 @@ Use this when the PR claims to change performance, or when it changes code on th
 
 ## The hot path
 
-The hot path is the code that runs for every cell, or every particle, on every time step. Its cost grows with the number of cell updates, so it sets the run time; code that runs once per run does not. A change is on the hot path when both of these hold:
+The hot path is the code that runs on every time step: anything reached from the time-step loop, where `AMRSimulation::timeStepWithSubcycling` calls `QuokkaSimulation::advanceSingleTimestepAtLevel` on each level, and `computeTimestepAtLevel` sets each step's size. To tell whether a change is on it, follow the calls in the diff back to one of these.
 
-1. **It runs every step.** It is reached from the time-step loop: `AMRSimulation::timeStepWithSubcycling` calls `QuokkaSimulation::advanceSingleTimestepAtLevel` on each level, and `computeTimestepAtLevel` sets each step's size. Follow the calls in the diff back to one of these.
-2. **It runs for every cell or particle.** It sits inside an `amrex::ParallelFor` (a GPU kernel when built for the GPU), or in a function called from one.
+Code that runs once per run, such as initial conditions, reading inputs, and writing plotfiles and checkpoints, is not on the hot path, unless the problem runs it every step. Within the hot path, loops over every cell or particle, such as an `amrex::ParallelFor`, cost the most, since their cost grows with the size of the grid.
 
-Code outside these, such as initial conditions, reading inputs, creating particles at the start, and writing plotfiles and checkpoints, is not on the hot path unless the problem runs it every step.
-
-When unsure, measure: the TinyProfiler tables at the end of a run (see **What to read**) list the time spent in each `BL_PROFILE` region. A change inside a region that takes a large share of the time is on the hot path.
+When unsure how much a change matters, measure it: the TinyProfiler tables at the end of a run (see **What to read**) show the time spent in each `BL_PROFILE` region.
 
 ## Set up a fair comparison
 

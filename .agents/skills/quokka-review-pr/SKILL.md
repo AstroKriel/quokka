@@ -24,7 +24,7 @@ These words are used in one sense each, here and in the skills this review uses.
 | Pre-existing | already present on the default branch, so not caused by the PR | here |
 | Default branch | `development`, the branch a PR merges into | `quokka-checkout-pr-and-default` |
 | Readiness | whether the PR has what a maintainer needs before reviewing starts | `quokka-check-pr-readiness` |
-| Hot path | code that runs for every cell or particle on every time step | `quokka-assess-pr-performance` |
+| Hot path | code that runs on every time step | `quokka-assess-pr-performance` |
 | Structure level | the form a part of the review takes: a line of prose, a table, or a subsection | Step 6 below |
 | Evidence table | the table of every run and check, one row each | Step 6 below |
 
