@@ -1,9 +1,9 @@
 ---
-name: quokka-review
-description: "Review a Quokka pull request or GitHub issue — build and run the code to verify the claim, then post a short verdict comment. Analysis only; does not implement fixes."
+name: quokka-review-pr
+description: "Review a Quokka pull request — build and run the code to verify the claim, then post a short verdict comment. Analysis only; does not implement fixes."
 ---
 
-# Quokka PR and Issue Review
+# Quokka PR Review
 
 Analyse and report. Never change source.
 
@@ -12,10 +12,9 @@ Analyse and report. Never change source.
 A target, plus an optional instruction:
 
 - `pr 2158`, or a bare `2158` — a pull request
-- `issue 2110` — an issue
 - text after the target — a specific instruction: `pr 2158. suggest a fix for the nvcc error`
 
-With no argument, ask which target.
+With no argument, ask which target. For an issue, use `quokka-review-issue`.
 
 An instruction sets the scope: it decides what you build, what you run, and what the report covers, and the comment must answer it directly — in the **Verdict** line when it is the whole point of the review. It never waives the Iron Law, and a request to fix something is answered with a suggested fix in the comment, never an edit.
 
@@ -28,24 +27,18 @@ Post every PR and issue comment with `--body-file`, never inline `--body "…"` 
 ## Setup (once per session)
 
 ```bash
-# Must name a repo. If it errors, run `gh repo set-default quokka-astro/quokka` once.
-gh repo set-default --view
-
 # <review-dir> — record it; substitute literally, never as a shell variable
 echo "$(git rev-parse --path-format=absolute --git-common-dir)/quokka-review"
 ```
 
-## Isolation
+## Skills this review uses
 
-Reviewing checks out other refs, so start from a clean tree:
-
-```bash
-git status --porcelain
-```
-
-Non-empty → stop and ask the user to commit, or to review in a separate worktree (`git worktree add ../review-<slug>`). Never stash their work.
-
-Build both refs on throwaway branches keyed to this review's `<slug>`, not a commit hash, so concurrent reviews don't collide. Delete them when done: `git branch -D dev-<slug> pr-<slug>`.
+| Step | Skill |
+|---|---|
+| Check out the PR and the default branch on throwaway branches, and clean up after | `quokka-checkout-pr-and-default` |
+| Build a problem with the right preset | `quokka-build-problem` |
+| Run a built problem | `quokka-run-problem` |
+| Read the output against the default branch | `quokka-assess-pr-results` |
 
 ## Reviewing a Pull Request
 
@@ -67,7 +60,7 @@ When in doubt use the **bug fix** cycle; it is stricter.
 
 Scan the diff for `AMREX_GPU_DEVICE`, `amrex::ParallelFor`, or changes to `simulation.hpp` / `QuokkaSimulation.hpp` — those make the GPU build mandatory.
 
-**Before the first `quokka config`, read `references/building.md`.** It sets up the environment, picks the preset, and holds the exact build commands.
+**Before the first `quokka config`, read `quokka-build-problem`.** It sets up the environment, picks the preset, and holds the exact build commands.
 
 ---
 
@@ -173,17 +166,7 @@ A separate file, `<folder>-COMMENT.md`. Fill this and delete every empty section
 6. **No preamble, no recap, no closer.** Not "I reviewed…", "Overall this is a nice change", "Let me know if…". Start with the verdict, end with the last finding.
 7. **"None" is a complete section.** Write `**Blocking:** none.` and stop.
 
-**One finding, before and after** — same concern, same evidence, from a real review.
-
-Bad, 118 words:
-
-> **1. `num_periods` has no input validation; non-positive values make the test pass vacuously.** `setup.num_periods=0` and `setup.num_periods=-1` both produce `stopTime_ <= 0`, run zero timesteps, and exit 0 with "error norm 6.368370e-18 (tol = 2.000000e-03)" — a green PASS for a simulation that never advanced. A negative value is worse than a no-op: it turns a correctness test into an unconditional success. These same files already validate their other setup parameters (`testFieldLoop.cpp:234` aborts on `loop_radius <= 0`), so guarding is the established convention here and the new parameter is the odd one out. Suggest an `amrex::Abort` in each of the seven sites.
-
-Good, 34 words:
-
-> 1. **`num_periods` unvalidated** — all 7 sites. `setup.num_periods=0` or `=-1` runs zero timesteps and reports PASS at error norm 6.37e-18; these files already abort on bad `loop_radius` (`testFieldLoop.cpp:234`).
-
-Same claim, same `file:line`, same number, same fix — implied by "unvalidated". A five-finding review written this way lands near **165 words**, so the 300 cap binds only on genuinely large reviews.
+For one finding written badly and then well, see `references/comment-example.md`.
 
 Before posting, check: reading **only** the Verdict line, does a maintainer know whether to merge? If not, rewrite that line.
 
@@ -193,38 +176,6 @@ Before posting, check: reading **only** the Verdict line, does a maintainer know
 
 ```bash
 gh pr comment NNNN --body-file <review-dir>/<folder>/<folder>-COMMENT.md
-```
-
-Then a 1–2 sentence summary in chat.
-
----
-
-## Reviewing a GitHub Issue
-
-```bash
-gh issue view NNNN
-```
-
-Derive a `<slug>` from the title. Inspect the affected source files and check git log for related commits and PRs. If the root cause is clear from code and history, that is enough; otherwise build `origin/development` as `dev-<slug>` per `references/building.md` and reproduce.
-
-For audit issues — labels `agent/audit` / `agent/codex` — verify each claimed finding against the **current** code, and state per finding: still valid, or invalid and why.
-
-Same two files. Report to `<review-dir>/issueNNNN-<slug>/issueNNNN-<slug>.md`: root cause, fix location(s), latent concerns, and whether the issue is resolved or still open. Then `issueNNNN-<slug>-COMMENT.md`, under all the comment rules above:
-
-```markdown
-**Verdict:** <root cause in one line | still open | already fixed by #NNNN>
-**Fix location:** `file.cpp:NN` <what changes>
-
-**Also worth knowing**
-- <one line each, at most 3>
-
-🤖 AI-assisted review
-```
-
-For audit issues, one line per claimed finding: `**Finding N** — valid / invalid because X`.
-
-```bash
-gh issue comment NNNN --body-file <review-dir>/issueNNNN-<slug>/issueNNNN-<slug>-COMMENT.md
 ```
 
 Then a 1–2 sentence summary in chat.

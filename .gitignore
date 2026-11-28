@@ -43,8 +43,15 @@ Backtrace.*
 /.claude/*
 !/.claude/settings.json
 !/.claude/rules/
+!/.claude/skills/
+/.claude/skills/*
+!/.claude/skills/quokka-*
 /.agent
-/.agents
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/README.md
+!/.agents/skills/quokka-*/
 
 # LaTeX files
 *.aux

@@ -1,4 +1,9 @@
-# Building a ref for review
+---
+name: quokka-build-problem
+description: "Build one Quokka problem with the right preset, on CPU or GPU: pick the preset, detect the GPU toolchain and device, then configure and build."
+---
+
+# Build a Quokka Problem
 
 ## Setup (once per session, from the repo root)
 
@@ -35,24 +40,9 @@ nvidia-smi -L 2>/dev/null || rocm-smi --showid 2>/dev/null || ls /dev/kfd 2>/dev
     || echo "No GPU device → compile-only check"
 ```
 
-## Build a ref
+## Configure and build
 
-Base:
-
-```bash
-git fetch origin development
-git checkout -B dev-<slug> origin/development
-git submodule update --init --recursive
-```
-
-PR — `gh pr checkout` also resolves PRs opened from forks; `--force` resets a branch left by a prior round:
-
-```bash
-gh pr checkout NNNN --branch pr-<slug> --force
-git submodule update --init --recursive
-```
-
-Then, for either — `quokka config` must run after every checkout or submodule update:
+On a checked-out ref (`quokka-checkout-pr-and-default`) — `quokka config` must run after every checkout or submodule update:
 
 ```bash
 quokka config -d <preset> --delete --source default --root <repo-root> -DQUOKKA_PYTHON=OFF
@@ -61,22 +51,4 @@ quokka build -d <preset> <Target> --source default --root <repo-root>
 
 For the GPU build, the same two commands with `-d <Nd>-<suffix>`.
 
-## Running a binary directly
-
-Run from `<repo-root>/tests`, which is gitignored, so artifacts do not dirty the tree. Both paths absolute:
-
-```bash
-cd <repo-root>/tests
-<repo-root>/build/<preset>/src/problems/<Target>/<Target> \
-    <repo-root>/inputs/<Target>.toml <param>=<value>
-```
-
-`quokka run` already does this.
-
-## Reading output
-
-Ignore AMReX performance advisories — "grid blocking factor (N) is too small for reasonable performance" is a grid-layout preference, not correctness. Mention them only when the PR is about grid decomposition.
-
-Weigh: convergence rates, error norms, SUCCESS/FAIL lines, actual abort messages.
-
-**Marginal failures.** An error norm within ~2× of its tolerance is not automatically the PR's fault. Compare against the base branch: near-identical norms both hovering at the threshold are tolerance noise, a pre-existing note. A norm that jumps an order of magnitude between base and PR is a regression even if it still passes.
+To run what was built, use `quokka-run-problem`.
