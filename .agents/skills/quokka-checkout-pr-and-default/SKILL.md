@@ -7,7 +7,7 @@ description: "Check out a Quokka pull request and the default branch (developmen
 
 Check out a PR and the default branch side by side, so that the two can be built and compared.
 
-**Terms:** `<short-name>` (Step 2 of `quokka-review-pr`).
+**Terms:** `<short-name>` (Step 2 of `quokka-review-pr`); `<pr-number>` (**Terms** in `quokka-review-pr`).
 
 The **default branch** is `development`, the branch every PR merges into. The other skills refer to it by that name, and point here for its definition.
 
@@ -45,7 +45,7 @@ git submodule update --init --recursive
 `gh pr checkout` also works for PRs opened from forks, and `--force` resets a branch left over from an earlier round:
 
 ```bash
-gh pr checkout NNNN --branch pr-<short-name> --force
+gh pr checkout <pr-number> --branch pr-<short-name> --force
 git submodule update --init --recursive
 ```
 

@@ -7,14 +7,14 @@ description: "Check that a Quokka pull request is ready for review: out of draft
 
 Check that a PR has what a maintainer needs before reviewing starts.
 
-**Terms:** maintainer (**Terms** in `quokka-review-pr`).
+**Terms:** maintainer and `<pr-number>` (**Terms** in `quokka-review-pr`).
 
 **Readiness** is about the author's side of a PR: whether it has what a maintainer needs before reviewing starts. It says nothing about whether the change is correct. The other skills point here for its definition.
 
 ## Run the checks
 
 ```bash
-python3 .agents/skills/quokka-check-pr-readiness/scripts/check_pr_readiness.py NNNN
+python3 .agents/skills/quokka-check-pr-readiness/scripts/check_pr_readiness.py <pr-number>
 ```
 
 It prints one row per check and exits 0 when every check passes.

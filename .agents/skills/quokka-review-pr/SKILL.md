@@ -29,6 +29,8 @@ These words are used in one sense each, here and in the skills this review uses.
 | Hot path | code that runs on every time step | `quokka-assess-pr-performance` |
 | Structure level | the form a part of the review takes: a line of prose, a table, or a subsection | Step 6 below |
 | Evidence table | the table of every run and check, one row each | Step 6 below |
+| `<pr-number>` | the number of the PR under review, such as `2468` | here |
+| `<file>:<line>` | where a finding is in the code: a path from the repository root and a line number, such as `src/hydro/HLLC.hpp:120` | here |
 
 ## The argument
 
@@ -84,8 +86,8 @@ Readiness is the author's side of the PR, and correctness is the review's. A dra
 ### Step 2: List the claims
 
 ```bash
-gh pr view NNNN
-gh pr diff NNNN
+gh pr view <pr-number>
+gh pr diff <pr-number>
 ```
 
 Derive a `<short-name>` from the title: a few lowercase words joined by hyphens, such as `fix-amr-regrid` from "Fix AMR regrid bug". It names the throwaway branches and the review folder.
@@ -141,7 +143,7 @@ Confirm with `quokka-assess-pr-results` that the results match the default branc
 
 Before anything is written up, check each finding again, on its own:
 
-1. Re-read the code at its `file:line` on the PR head, not from memory of the diff.
+1. Re-read the code at its `<file>:<line>` on the PR head, not from memory of the diff.
 2. Confirm the evidence behind it: a run, a build or a number recorded in the evidence table, or a quoted line of code.
 3. Keep it only if both hold. A finding that cannot be confirmed is dropped, not softened.
 
@@ -175,11 +177,11 @@ A table needs real columns: each one has a name and holds the same kind of value
 #### The report
 
 ```bash
-ls <review-dir>/ 2>/dev/null | grep "^prNNNN-" || echo "none"
-mkdir -p <review-dir>/prNNNN-<short-name>
+ls <review-dir>/ 2>/dev/null | grep "^pr<pr-number>-" || echo "none"
+mkdir -p <review-dir>/pr<pr-number>-<short-name>
 ```
 
-The review's `<folder>` is `prNNNN-<short-name>`, or an existing `prNNNN-*` folder if there is one. Name the report `<folder>-REVIEW.md`, and add `-v2`, `-v3` and so on for follow-up rounds.
+The review's `<folder>` is `pr<pr-number>-<short-name>`, or an existing `pr<pr-number>-*` folder if there is one. Name the report `<folder>-REVIEW.md`, and add `-v2`, `-v3` and so on for follow-up rounds.
 
 The report holds, in this order:
 
@@ -191,7 +193,7 @@ The report holds, in this order:
    |---|---|---|---|---|---|
 
 4. **Findings:** a table with one row per finding, the same as in the comment.
-5. **One subsection per finding that needs explaining:** the root cause with `file:line` for a bug fix, or the match against the claim for a feature. Derivations, parameter sweeps and raw numbers go here.
+5. **One subsection per finding that needs explaining:** the root cause with `<file>:<line>` for a bug fix, or the match against the claim for a feature. Derivations, parameter sweeps and raw numbers go here.
 6. **Left for the maintainer:** a bullet list of what the review did not settle, such as whether the physics is right, design choices, and claims it could not test.
 7. **Pre-existing issues:** a bullet list.
 
@@ -206,7 +208,7 @@ Write the comment to a separate file, `<folder>-COMMENT.md`:
 
 | Finding | Where | Evidence | Blocks merge |
 |---|---|---|---|
-| <what is wrong> | `file.cpp:NN` | <trigger and result, with the number> | yes / no |
+| <what is wrong> | `<file>:<line>` | <trigger and result, with the number> | yes / no |
 
 <details><summary>Evidence</summary>
 
@@ -234,12 +236,12 @@ For example, one finding:
 
 Before posting, check: reading **only** the Verdict line, does a maintainer know what to do next? If not, rewrite that line.
 
-**Follow-up rounds (v2, v3, …):** re-read the code at every carried-over `file:line` and drop findings whose code is gone. A round where everything was fixed is three lines: verdict, what you re-ran, what still stands.
+**Follow-up rounds (v2, v3, …):** re-read the code at every carried-over `<file>:<line>` and drop findings whose code is gone. A round where everything was fixed is three lines: verdict, what you re-ran, what still stands.
 
 ### Step 7: Post the comment
 
 ```bash
-gh pr comment NNNN --body-file <review-dir>/<folder>/<folder>-COMMENT.md
+gh pr comment <pr-number> --body-file <review-dir>/<folder>/<folder>-COMMENT.md
 ```
 
 Then provide a summary of one or two sentences in the chat.

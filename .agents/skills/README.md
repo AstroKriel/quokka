@@ -31,6 +31,8 @@ Each term is defined in one place, and every skill that uses it points there.
 | Preset | **Presets** in `quokka-build-problem` |
 | `<repo-root>`, `<Problem>`, `<preset>`, `<num-dims>`, `<suffix>` | **Placeholders** in `quokka-build-problem` |
 | `<short-name>` | Step 2 of `quokka-review-pr` |
+| `<pr-number>`, `<file>:<line>` | **Terms** in `quokka-review-pr` |
+| `<issue-number>` | **The argument** in `quokka-review-issue` |
 | `<review-dir>` | **Set up** in `quokka-review-pr` |
 
 ## Adding a skill
