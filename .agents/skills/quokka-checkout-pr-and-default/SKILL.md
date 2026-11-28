@@ -7,9 +7,7 @@ description: "Check out a Quokka pull request and the default branch (developmen
 
 Check out a PR and the default branch side by side, so that the two can be built and compared.
 
-**Terms:** `<short-name>` (Step 2 of `quokka-review-pr`); `<pr-number>` (**Terms** in `quokka-review-pr`).
-
-The **default branch** is `development`, the branch every PR merges into. The other skills refer to it by that name, and point here for its definition.
+**Terms** (defined in `.agents/skills/glossary.md`): default branch, `<pr-number>`, `<short-name>`.
 
 The throwaway branches are named after a `<short-name>` for the work at hand. `quokka-review-pr`, for example, derives it from the PR title.
 

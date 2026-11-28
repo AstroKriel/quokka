@@ -51,6 +51,7 @@ Backtrace.*
 !/.agents/skills/
 /.agents/skills/*
 !/.agents/skills/README.md
+!/.agents/skills/glossary.md
 !/.agents/skills/quokka-*/
 
 # LaTeX files

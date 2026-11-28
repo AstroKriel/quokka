@@ -8,7 +8,7 @@ description: "Narrow down why a Quokka problem fails to configure or build, and 
 Find why a problem fails to configure or build, and whether the PR caused it.
 
 **Before this:** the failing build, from `quokka-build-problem`.
-**Terms:** default branch (`quokka-checkout-pr-and-default`); pre-existing (**Terms** in `quokka-review-pr`); preset (**Presets** in `quokka-build-problem`).
+**Terms** (defined in `.agents/skills/glossary.md`): default branch, pre-existing, preset.
 
 ## Narrow it down
 

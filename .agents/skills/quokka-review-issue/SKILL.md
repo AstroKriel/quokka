@@ -8,7 +8,7 @@ description: "Review a Quokka GitHub issue or audit finding: check it against th
 Check an issue, or an audit finding, against the current code, and post a short verdict. This skill analyses and reports; it never changes the source code.
 
 **Before this:** follow **Comments** and **Set up** in `quokka-review-pr`. This review uses the same `<review-dir>`, the same two files, and the same comment rules as **Step 6** there.
-**Terms:** `<short-name>` (Step 2 of `quokka-review-pr`); `<review-dir>` (**Set up** in `quokka-review-pr`); `<pr-number>` and `<file>:<line>` (**Terms** in `quokka-review-pr`); default branch (`quokka-checkout-pr-and-default`).
+**Terms** (defined in `.agents/skills/glossary.md`): claim, default branch, finding, `<file>:<line>`, `<issue-number>`, `<pr-number>`, `<review-dir>`, `<short-name>`.
 
 ## The argument
 

@@ -8,7 +8,7 @@ description: "Assess the output of a Quokka run on a pull request against the de
 Compare the output of a run on the PR with the same run on the default branch.
 
 **Before this:** run the same scenario on both branches with `quokka-checkout-pr-and-default`, `quokka-build-problem` and `quokka-run-problem`.
-**Terms:** default branch (`quokka-checkout-pr-and-default`); pre-existing (**Terms** in `quokka-review-pr`).
+**Terms** (defined in `.agents/skills/glossary.md`): default branch, pre-existing.
 
 ## What to weigh
 

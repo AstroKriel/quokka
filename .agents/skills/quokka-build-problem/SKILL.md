@@ -8,6 +8,7 @@ description: "Build one Quokka problem with the right preset, on CPU or GPU: pic
 Build one problem with the right preset, on CPU or GPU.
 
 **Before this:** check out the branch to build, for example with `quokka-checkout-pr-and-default`.
+**Terms** (defined in `.agents/skills/glossary.md`): preset, `<num-dims>`, `<preset>`, `<Problem>`, `<repo-root>`, `<suffix>`.
 
 ## Set up (once per session, from the repository root)
 
@@ -20,23 +21,9 @@ git rev-parse --show-toplevel
 
 Every `quokka` command below takes `--root <repo-root>` and `--source default`. Keep both.
 
-## Placeholders
-
-These placeholders are used here, in `quokka-run-problem`, and in the skills that call them:
-
-| Placeholder | Stands for |
-|---|---|
-| `<repo-root>` | the repository root, recorded above |
-| `<Problem>` | the problem to build, which is the name of its folder in `src/problems/`, such as `HydroShocktube` |
-| `<preset>` | the build preset (defined in **Presets** below), such as `1d` or `3d-cuda` |
-| `<num-dims>` | the number of dimensions of a preset: `1`, `2` or `3` |
-| `<suffix>` | the GPU backend of a preset, `cuda` or `hip`, found in **Choose the preset** below |
-
 ## Presets
 
-A preset is a named build configuration of the `quokka` script. One name sets the number of dimensions, whether the build is Release or Debug, and the GPU backend or compiler.
-
-Each preset builds into its own folder, `<repo-root>/build/<preset>`. `quokka --help` lists them all, and with no `-d` the script uses `1d`.
+These are the presets of the `quokka` script. Each preset builds into its own folder, `<repo-root>/build/<preset>`. `quokka --help` lists them all, and with no `-d` the script uses `1d`.
 
 | Presets | Build |
 |---|---|

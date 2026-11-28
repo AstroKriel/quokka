@@ -7,30 +7,11 @@ description: "Review a Quokka pull request: build and run the code to test each 
 
 Review a PR by testing each claim it makes, and post a short verdict. This skill analyses and reports; it never changes the source code.
 
-**Terms:** listed under **Terms** below, with where each is defined.
+**Terms** (defined in `.agents/skills/glossary.md`): claim, default branch, evidence, evidence table, finding, hot path, maintainer, pre-existing, preset, readiness, structure level, `<file>:<line>`, `<folder>`, `<pr-number>`, `<review-dir>`, `<short-name>`.
 
 ## What this review is for
 
 This review is the baseline a maintainer reads before reviewing the PR themselves. It settles what can be settled by building, running and reading, with evidence for each finding, and states what it leaves to the maintainer. It never approves a PR: only a person does.
-
-## Terms
-
-These words are used in one sense each, here and in the skills this review uses. Terms defined in another skill are listed with where to find them.
-
-| Term | Meaning | Defined in |
-|---|---|---|
-| Claim | what the PR says it does | here |
-| Evidence | what a build, a run, or a reading of the code shows | here |
-| Finding | a problem that the evidence supports | here |
-| Maintainer | the person who reviews the PR after this review, and who alone can approve it | here |
-| Pre-existing | already present on the default branch, so not caused by the PR | here |
-| Default branch | `development`, the branch a PR merges into | `quokka-checkout-pr-and-default` |
-| Readiness | whether the PR has what a maintainer needs before reviewing starts | `quokka-check-pr-readiness` |
-| Hot path | code that runs on every time step | `quokka-assess-pr-performance` |
-| Structure level | the form a part of the review takes: a line of prose, a table, or a subsection | Step 6 below |
-| Evidence table | the table of every run and check, one row each | Step 6 below |
-| `<pr-number>` | the number of the PR under review, such as `2468` | here |
-| `<file>:<line>` | where a finding is in the code: a path from the repository root and a line number, such as `src/hydro/HLLC.hpp:120` | here |
 
 ## The argument
 
@@ -90,7 +71,7 @@ gh pr view <pr-number>
 gh pr diff <pr-number>
 ```
 
-Derive a `<short-name>` from the title: a few lowercase words joined by hyphens, such as `fix-amr-regrid` from "Fix AMR regrid bug". It names the throwaway branches and the review folder.
+Derive a `<short-name>` from the title, such as `fix-amr-regrid` from "Fix AMR regrid bug".
 
 List every claim the PR makes, from the PR description, linked issues and the diff. Where the description is vague, infer the claim from the diff and note the gap. Each kind of claim sets the evidence Step 3 produces:
 

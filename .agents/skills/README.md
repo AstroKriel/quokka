@@ -19,22 +19,8 @@ Names follow `quokka-<verb>-<subject>`. Skills that are variants of the same tas
 
 ## Terms
 
-Each term is defined in one place, and every skill that uses it points there.
-
-| Term | Defined in |
-|---|---|
-| Claim, evidence, finding, maintainer, pre-existing | **Terms** in `quokka-review-pr` |
-| Structure level, evidence table | Step 6 of `quokka-review-pr` |
-| Default branch | `quokka-checkout-pr-and-default` |
-| Readiness | `quokka-check-pr-readiness` |
-| Hot path | `quokka-assess-pr-performance` |
-| Preset | **Presets** in `quokka-build-problem` |
-| `<repo-root>`, `<Problem>`, `<preset>`, `<num-dims>`, `<suffix>` | **Placeholders** in `quokka-build-problem` |
-| `<short-name>` | Step 2 of `quokka-review-pr` |
-| `<pr-number>`, `<file>:<line>` | **Terms** in `quokka-review-pr` |
-| `<issue-number>` | **The argument** in `quokka-review-issue` |
-| `<review-dir>` | **Set up** in `quokka-review-pr` |
+Every term the skills use in a specific sense, and every placeholder, is defined once in [`glossary.md`](glossary.md). Each skill lists the terms it uses in its header.
 
 ## Adding a skill
 
-A new skill gets a row here, a folder in `.agents/skills/`, and a link in `.claude/skills/` (`ln -s ../../.agents/skills/<skill> .claude/skills/<skill>`).
+A new skill gets a row here, a folder in `.agents/skills/`, and a link in `.claude/skills/` (`ln -s ../../.agents/skills/<skill> .claude/skills/<skill>`). A new term gets a row in `glossary.md`, and is listed in the header of each skill that uses it.

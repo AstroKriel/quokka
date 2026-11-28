@@ -8,7 +8,7 @@ description: "Narrow down why a Quokka problem crashes, aborts or gives a wrong 
 Find why a problem crashes, aborts or gives a wrong result at run time, and whether the PR caused it. The full guide, including GPU debuggers and sanitizers, is `docs/markdown/debugging.md`; this skill gives the order to work through it during a review.
 
 **Before this:** the failing run, from `quokka-run-problem`.
-**Terms:** default branch (`quokka-checkout-pr-and-default`); pre-existing (**Terms** in `quokka-review-pr`); preset and `<num-dims>` (**Presets** and **Placeholders** in `quokka-build-problem`).
+**Terms** (defined in `.agents/skills/glossary.md`): default branch, pre-existing, preset, `<num-dims>`.
 
 ## Narrow it down
 
