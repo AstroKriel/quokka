@@ -7,7 +7,7 @@ description: "Review a Quokka pull request: build and run the code to test each 
 
 Review a PR by testing each claim it makes, and post a short verdict. This skill analyses and reports; it never changes the source code.
 
-**Terms** (defined in `.agents/skills/glossary.md`): claim, default branch, evidence, evidence table, finding, hot path, maintainer, pre-existing, preset, readiness, structure level, `<file>:<line>`, `<folder>`, `<pr-number>`, `<review-dir>`, `<short-name>`.
+**Terms:** claim, default branch, evidence, evidence table, finding, hot path, maintainer, pre-existing, preset, readiness, structure level, `<file>:<line>`, `<folder>`, `<pr-number>`, `<review-dir>`, `<short-name>` (defined in `.agents/skills/glossary.md`).
 
 ## What this review is for
 
@@ -107,7 +107,7 @@ What to run depends on the kind of claim.
 
 **An accuracy claim.** Run the convergence test on both branches, and compare error norms and convergence rates with `quokka-assess-pr-results`.
 
-**A performance claim,** or a change on the hot path: compare the branches with `quokka-assess-pr-performance`.
+**A performance claim, or a change on the hot path.** Compare the branches with `quokka-assess-pr-performance`.
 
 Build on the GPU as well when Step 2 flagged device code.
 
@@ -209,7 +209,7 @@ For example, one finding:
 | `num_periods` is not validated | 7 problem files | `num_periods=0` or `=-1` runs zero steps and reports PASS at error norm 6.37e-18 | yes |
 
 1. **Verdict first.** Line 1 is the conclusion a maintainer acts on. The verdict is one of: `ready for maintainer review` (no blocking findings), `N blocking`, `cannot verify X`, or `not ready for review` (from Step 1). Never write "ship it" or approve: only a person approves.
-2. **One row per finding,** at most 5, worst first, with the rows that block merging before the rest. Drop any finding whose fix would not change what the author does. A pre-existing issue gets one row with `no` in the last column, or none.
+2. **One row per finding.** List at most 5, worst first, with the rows that block merging before the rest. Drop any finding whose fix would not change what the author does. A pre-existing issue gets one row with `no` in the last column, or none.
 3. **Numbers, not adjectives.** `error norm 1.33e-09 vs tol 3e-03`, not "well within tolerance". Paste the real abort message.
 4. **A row holds the finding and its number, not the explanation.** An explanation that does not fit goes into the report as a subsection.
 5. **No preamble, no recap, no closer.** Start with the verdict, end with the table.

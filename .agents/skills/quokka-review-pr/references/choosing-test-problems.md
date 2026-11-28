@@ -36,5 +36,5 @@ Step 4 runs one scenario the PR should not change. Choose it from the other tabl
 
 ## The test suites
 
-- **CI tests** are the problems registered with `add_test` in their `CMakeLists.txt`, and run with `ctest -R <name>`. Check which dimensions each test is registered for: a test registered only for a dimension that no CI job builds never runs.
-- **The nightly regression suite** is `regression/quokka-tests.ini`, which compares output against stored benchmarks. A change that alters results on purpose needs its benchmarks regenerated. Only the suite maintainer can do that, so say so in the review.
+- **CI tests:** the problems registered with `add_test` in their `CMakeLists.txt`, and run with `ctest -R <name>`. Check which dimensions each test is registered for: a test registered only for a dimension that no CI job builds never runs.
+- **The nightly regression suite:** `regression/quokka-tests.ini`, which compares output against stored benchmarks. A change that alters results on purpose needs its benchmarks regenerated. Only the suite maintainer can do that, so say so in the review.

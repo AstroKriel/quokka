@@ -8,7 +8,7 @@ description: "Assess the run time and memory of a Quokka pull request against th
 Compare the run time and memory of the PR with the default branch. Use this when the PR claims to change performance, or when it changes code on the hot path (defined below). For why GPU kernels behave the way they do, see `docs/markdown/performance.md`.
 
 **Before this:** check out both branches with `quokka-checkout-pr-and-default`.
-**Terms** (defined in `.agents/skills/glossary.md`): claim, default branch, hot path, preset.
+**Terms:** claim, default branch, hot path, preset (defined in `.agents/skills/glossary.md`).
 
 ## The hot path
 

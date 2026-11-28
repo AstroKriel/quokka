@@ -8,7 +8,7 @@ description: "Run a built Quokka problem with its inputs and any parameter overr
 Run a built problem, with its inputs and any parameter overrides.
 
 **Before this:** build the problem with `quokka-build-problem`.
-**Terms** (defined in `.agents/skills/glossary.md`): default branch, preset, `<preset>`, `<Problem>`, `<repo-root>`.
+**Terms:** default branch, preset, `<preset>`, `<Problem>`, `<repo-root>` (defined in `.agents/skills/glossary.md`).
 
 ## Run the binary directly
 

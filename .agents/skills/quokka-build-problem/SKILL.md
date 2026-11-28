@@ -8,7 +8,7 @@ description: "Build one Quokka problem with the right preset, on CPU or GPU: pic
 Build one problem with the right preset, on CPU or GPU.
 
 **Before this:** check out the branch to build, for example with `quokka-checkout-pr-and-default`.
-**Terms** (defined in `.agents/skills/glossary.md`): preset, `<num-dims>`, `<preset>`, `<Problem>`, `<repo-root>`, `<suffix>`.
+**Terms:** preset, `<num-dims>`, `<preset>`, `<Problem>`, `<repo-root>`, `<suffix>` (defined in `.agents/skills/glossary.md`).
 
 ## Set up (once per session, from the repository root)
 
@@ -36,9 +36,9 @@ These are the presets of the `quokka` script. Each preset builds into its own fo
 ## Choose the preset
 
 - **Use the lowest dimension the problem allows.** Move to `2d` or `3d` only when the problem needs it.
-- **On macOS,** append `-apple` to the preset: `1d-apple`, `2d-apple`, `3d-apple`.
-- **For a change that touches GPU code,** also build with the GPU preset whenever a GPU toolchain is installed. On a machine with a toolchain but no GPU, the build alone is the check; running on a GPU is left to CI.
-- **For a slow CPU test on a machine with a GPU,** run it with the GPU preset.
+- **macOS:** append `-apple` to the preset: `1d-apple`, `2d-apple`, `3d-apple`.
+- **A change that touches GPU code:** also build with the GPU preset whenever a GPU toolchain is installed. On a machine with a toolchain but no GPU, the build alone is the check; running on a GPU is left to CI.
+- **A slow CPU test on a machine with a GPU:** run it with the GPU preset.
 
 Check for the toolchain and the device separately: the toolchain decides whether you can compile for the GPU, and the device decides whether you can run on it. `nvcc` may be installed but missing from the interactive `PATH`.
 

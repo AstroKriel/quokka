@@ -7,7 +7,7 @@ description: "Check that a Quokka pull request is ready for review: out of draft
 
 Check that a PR has what a maintainer needs before reviewing starts. This is the author's side of the PR; whether the change is correct is for the review.
 
-**Terms** (defined in `.agents/skills/glossary.md`): maintainer, readiness, `<pr-number>`.
+**Terms:** maintainer, readiness, `<pr-number>` (defined in `.agents/skills/glossary.md`).
 
 ## Run the checks
 
