@@ -18,4 +18,4 @@ The full guide, including GPU debuggers and sanitizers, is `docs/markdown/debugg
 
 ## Report
 
-The smallest inputs that fail, the command, the commit, the preset and machine, and the abort message or the wrong value next to the expected one. Say whether the default branch fails the same way.
+Report the smallest inputs that fail, the command, the commit, the preset and machine, and the abort message, or the wrong value next to the expected one. Say whether the default branch fails the same way.

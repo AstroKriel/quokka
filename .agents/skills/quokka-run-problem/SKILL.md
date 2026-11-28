@@ -5,18 +5,18 @@ description: "Run a built Quokka problem with its inputs and any parameter overr
 
 # Run a Quokka Problem
 
-Build it first with `quokka-build-problem`.
+Build the problem first with `quokka-build-problem`.
 
-## Running a binary directly
+## Run the binary directly
 
-Run from `<repo-root>/tests`, which is gitignored, so artifacts do not dirty the tree. Both paths absolute:
+Run from `<repo-root>/tests`. That folder is ignored by git, so the output files do not clutter the source tree. Provide both the binary and the input file as absolute paths, since the working directory is not the repository root:
 
 ```bash
 cd <repo-root>/tests
-<repo-root>/build/<preset>/src/problems/<Target>/<Target> \
-    <repo-root>/inputs/<Target>.toml <param>=<value>
+<repo-root>/build/<preset>/src/problems/<Problem>/<Problem> \
+    <repo-root>/inputs/<Problem>.toml <param>=<value>
 ```
 
-`quokka run` already does this.
+Each `<param>=<value>` after the input file overrides one parameter in it. `quokka run` does the same thing for you.
 
-To read the output against the default branch, use `quokka-assess-pr-results`.
+To compare the output against the default branch, use `quokka-assess-pr-results`.

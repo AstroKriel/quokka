@@ -5,28 +5,28 @@ description: "Build one Quokka problem with the right preset, on CPU or GPU: pic
 
 # Build a Quokka Problem
 
-## Setup (once per session, from the repo root)
+## Set up (once per session, from the repository root)
 
-Install `quokka` and confirm it is not stale; see **Build & Test Commands** in `CLAUDE.md`.
+Install `quokka` and confirm that it is not stale, as described under **Build & Test Commands** in `CLAUDE.md`. Then record the repository root:
 
 ```bash
-# Repo root: record it; substitute literally below, never as a shell variable
+# Record the output and substitute it literally below, not as a shell variable.
 git rev-parse --show-toplevel
 ```
 
-Every `quokka` command below carries `--root <repo-root>` and `--source default`. Keep both.
+Every `quokka` command below takes `--root <repo-root>` and `--source default`. Keep both.
 
-## Choosing the preset
+## Choose the preset
 
-- **Lowest dimensionality the problem allows.** Move to `2d` / `3d` only when it demands it.
-- **macOS:** append `-apple` (`1d-apple`, `2d-apple`, `3d-apple`).
-- **GPU-touching change:** build with the GPU preset whenever a toolchain exists. Toolchain but no device: the compile alone is the check, runtime is CI's job.
-- **Slow CPU test and a GPU device present:** run on the GPU preset.
+- **Use the lowest dimension the problem allows.** Move to `2d` or `3d` only when the problem needs it.
+- **On macOS,** append `-apple` to the preset: `1d-apple`, `2d-apple`, `3d-apple`.
+- **For a change that touches GPU code,** build with the GPU preset whenever a GPU toolchain is installed. If there is a toolchain but no GPU, the build alone is the check, and running on a GPU is left to CI.
+- **For a slow CPU test on a machine with a GPU,** run it with the GPU preset.
 
-Detect toolchain and device separately: the toolchain decides whether you can compile, the device whether you can run. `nvcc` may be off the interactive PATH.
+Check for the toolchain and the device separately: the toolchain decides whether you can compile for the GPU, and the device decides whether you can run on it. `nvcc` may be installed but missing from the interactive `PATH`.
 
 ```bash
-# toolchain → GPU preset suffix
+# Toolchain: which GPU preset suffix to use
 if [ -x /usr/local/cuda/bin/nvcc ] || command -v nvcc &>/dev/null; then
     echo "CUDA → suffix: -cuda"
 elif command -v hipcc &>/dev/null || [ -d /opt/rocm ]; then
@@ -35,20 +35,20 @@ else
     echo "No GPU toolchain → skip GPU build steps"
 fi
 
-# device → can you RUN on the GPU, or only compile?
+# Device: can you run on the GPU, or only compile?
 nvidia-smi -L 2>/dev/null || rocm-smi --showid 2>/dev/null || ls /dev/kfd 2>/dev/null \
     || echo "No GPU device → compile-only check"
 ```
 
 ## Configure and build
 
-On a checked-out ref (`quokka-checkout-pr-and-default`); `quokka config` must run after every checkout or submodule update:
+Configure and build on a checked-out branch (see `quokka-checkout-pr-and-default`). Run `quokka config` again after every checkout or submodule update:
 
 ```bash
 quokka config -d <preset> --delete --source default --root <repo-root> -DQUOKKA_PYTHON=OFF
-quokka build -d <preset> <Target> --source default --root <repo-root>
+quokka build -d <preset> <Problem> --source default --root <repo-root>
 ```
 
-For the GPU build, the same two commands with `-d <Nd>-<suffix>`.
+For the GPU build, run the same two commands with `-d <Nd>-<suffix>`, for example `-d 3d-cuda`.
 
 To run what was built, use `quokka-run-problem`.

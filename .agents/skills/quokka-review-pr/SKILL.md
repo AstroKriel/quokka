@@ -5,7 +5,7 @@ description: "Review a Quokka pull request: build and run the code to test each 
 
 # Quokka PR Review
 
-Analyse and report. Never change source.
+This skill analyses and reports. It never changes the source code.
 
 ## What this review is for
 
@@ -32,14 +32,14 @@ An instruction sets the scope: it decides what you build, what you run, and what
 
 ## Comments
 
-Post every PR and issue comment with `--body-file`, never inline `--body "…"`: backticks and `$` in a review comment get command-substituted out of an inline body. End every comment with the fixed line `🤖 AI-assisted review`.
+Post every PR and issue comment with `--body-file`, never with an inline `--body "…"`: in an inline body, the shell substitutes away backticks and `$`, which review comments are full of. End every comment with the fixed line `🤖 AI-assisted review`.
 
-**Exception:** `/azp run …` CI triggers post raw with no footer; Azure Pipelines matches on exact command text.
+**Exception:** a `/azp run …` comment that triggers CI is posted exactly as written, with no footer, because Azure Pipelines only responds to the exact command text.
 
-## Setup (once per session)
+## Set up (once per session)
 
 ```bash
-# <review-dir>: record it; substitute literally, never as a shell variable
+# Record the output as <review-dir>, and substitute it literally below, not as a shell variable.
 echo "$(git rev-parse --path-format=absolute --git-common-dir)/quokka-review"
 ```
 
@@ -114,7 +114,7 @@ Before anything is written up, check each finding again, on its own:
 2. Confirm the evidence behind it: a run, a build or a number recorded in the evidence table, or a quoted line of code.
 3. Keep it only if both hold. A finding that cannot be confirmed is dropped, not softened.
 
-Where the tool allows it, give each finding to a fresh agent with only the PR description, the finding and its evidence, so that the check does not inherit the reasoning that produced it.
+Where the tool allows it, pass each finding to a fresh agent with only the PR description, the finding and its evidence, so that the check does not inherit the reasoning that produced it.
 
 Do not report:
 
@@ -211,4 +211,4 @@ Before posting, check: reading **only** the Verdict line, does a maintainer know
 gh pr comment NNNN --body-file <review-dir>/<folder>/<folder>-COMMENT.md
 ```
 
-Then a 1–2 sentence summary in chat.
+Then provide a summary of one or two sentences in the chat.

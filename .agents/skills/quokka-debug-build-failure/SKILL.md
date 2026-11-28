@@ -15,4 +15,4 @@ description: "Narrow down why a Quokka problem fails to configure or build, and 
 
 ## Report
 
-The command, the commit, the preset and machine, and the first error message, pasted as it appears. Say whether the default branch builds.
+Report the command, the commit, the preset and machine, and the first error message, pasted exactly as it appears. Say whether the default branch builds.

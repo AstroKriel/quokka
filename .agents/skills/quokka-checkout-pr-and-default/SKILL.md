@@ -5,26 +5,26 @@ description: "Check out a Quokka pull request and the default branch (developmen
 
 # Check Out a PR and the Default Branch
 
-Uses a `<slug>` for the work at hand, for example derived by `quokka-review-pr` from the PR title.
+The branches are named after a `<slug>` for the work at hand. `quokka-review-pr`, for example, derives it from the PR title.
 
-## Setup (once per session)
+## Set up (once per session)
 
 ```bash
-# Must name a repo. If it errors, run `gh repo set-default quokka-astro/quokka` once.
+# This must name a repository. If it fails, run `gh repo set-default quokka-astro/quokka` once.
 gh repo set-default --view
 ```
 
-## Isolation
+## Start from a clean tree
 
-Checking out other refs needs a clean tree:
+Checking out other branches needs a clean working tree:
 
 ```bash
 git status --porcelain
 ```
 
-Non-empty → stop and ask the user to commit, or to work in a separate worktree (`git worktree add ../review-<slug>`). Never stash their work.
+If this prints anything, stop and ask the user either to commit their changes or to work in a separate worktree (`git worktree add ../review-<slug>`). Never stash their work.
 
-Build both refs on throwaway branches keyed to `<slug>`, not a commit hash, so concurrent reviews don't collide.
+Check out both branches as throwaway branches named after `<slug>`, not after a commit hash, so that reviews running at the same time do not collide.
 
 ## Check out the default branch
 
@@ -36,18 +36,18 @@ git submodule update --init --recursive
 
 ## Check out the PR
 
-`gh pr checkout` also resolves PRs opened from forks; `--force` resets a branch left by a prior round:
+`gh pr checkout` also works for PRs opened from forks, and `--force` resets a branch left over from an earlier round:
 
 ```bash
 gh pr checkout NNNN --branch pr-<slug> --force
 git submodule update --init --recursive
 ```
 
-After either checkout, configure and build with `quokka-build-problem`; `quokka config` must run after every checkout or submodule update.
+After either checkout, configure and build with `quokka-build-problem`. `quokka config` has to run again after every checkout or submodule update.
 
 ## Clean up
 
-Delete the throwaway branches when done:
+Delete the throwaway branches when you are done:
 
 ```bash
 git branch -D dev-<slug> pr-<slug>

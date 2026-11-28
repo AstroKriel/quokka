@@ -5,12 +5,17 @@ description: "Assess the output of a Quokka run on a pull request against the de
 
 # Assess PR Results
 
-Run the same scenario on the PR and on the default branch first (`quokka-checkout-pr-and-default`, `quokka-build-problem`, `quokka-run-problem`).
+First run the same scenario on the PR and on the default branch (see `quokka-checkout-pr-and-default`, `quokka-build-problem` and `quokka-run-problem`).
 
-## Reading output
+## What to weigh
 
-Ignore AMReX performance advisories: "grid blocking factor (N) is too small for reasonable performance" is a grid-layout preference, not correctness. Mention them only when the PR is about grid decomposition.
+Weigh convergence rates, error norms, `SUCCESS` and `FAIL` lines, and the exact abort messages.
 
-Weigh: convergence rates, error norms, SUCCESS/FAIL lines, actual abort messages.
+Ignore AMReX performance advisories such as "grid blocking factor (N) is too small for reasonable performance". They are about how the grid is laid out, not about correctness. Mention them only when the PR is about grid decomposition.
 
-**Marginal failures.** An error norm within ~2× of its tolerance is not automatically the PR's fault. Compare against the default branch: near-identical norms both hovering at the threshold are tolerance noise, a pre-existing note. A norm that jumps an order of magnitude between the default branch and the PR is a regression even if it still passes.
+## Marginal failures
+
+An error norm within about 2× of its tolerance is not automatically the PR's fault, so compare it against the default branch:
+
+- If both branches give nearly the same norm close to the tolerance, the failure is tolerance noise that was already there. Note it as pre-existing.
+- If the norm jumps by an order of magnitude from the default branch to the PR, it is a regression, even if it still passes.

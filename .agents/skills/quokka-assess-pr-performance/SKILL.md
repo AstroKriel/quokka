@@ -29,7 +29,7 @@ Run the binary directly (`quokka-run-problem`), not with `quokka run`: the wrapp
 
 ## Report
 
-A table with one row per branch and run, then the median of each branch:
+Report a table with one row per branch and run, followed by the median of each branch:
 
 | Branch | Commit | Run | Figure of merit (μs/zone-update) | Total time (s) |
 |---|---|---|---|---|

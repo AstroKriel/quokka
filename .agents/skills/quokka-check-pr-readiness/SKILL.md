@@ -35,4 +35,4 @@ A test registered only for a dimension no CI job builds never runs, and counts a
 
 ## Report
 
-A table, one row per check, with the result and the detail. When a check fails, say what the author does next, in one line each. When every check passes, the PR is ready for review.
+Report a table with one row per check, giving its result and detail. For each check that fails, add one line saying what the author should do next. When every check passes, the PR is ready for review.

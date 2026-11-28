@@ -5,7 +5,7 @@ description: "Review a Quokka GitHub issue or audit finding: check it against th
 
 # Quokka Issue Review
 
-Analyse and report. Never change source.
+This skill analyses and reports. It never changes the source code.
 
 ## The argument
 
@@ -18,7 +18,7 @@ With no argument, ask which target. For a pull request, use `quokka-review-pr`.
 
 ## Comments, setup and reporting
 
-Follow **Comments**, **Setup** and **Reporting** in `quokka-review-pr`: the same `<review-dir>`, the same two files, and the same comment rules.
+Follow **Comments**, **Set up**, and **Step 6: Write the report and comment** in `quokka-review-pr`: use the same `<review-dir>`, the same two files, and the same comment rules.
 
 ## Reviewing a GitHub Issue
 
@@ -30,7 +30,7 @@ Derive a `<slug>` from the title. Inspect the affected source files and check gi
 
 For audit issues (labels `agent/audit` / `agent/codex`), verify each claimed finding against the **current** code, and state per finding: still valid, or invalid and why.
 
-Same two files. Report to `<review-dir>/issueNNNN-<slug>/issueNNNN-<slug>.md`: root cause, fix location(s), latent concerns, and whether the issue is resolved or still open. Then `issueNNNN-<slug>-COMMENT.md`, under all the comment rules in `quokka-review-pr`:
+Write the same two files as for a PR. The report goes to `<review-dir>/issueNNNN-<slug>/issueNNNN-<slug>.md`, and gives the root cause, where the fix belongs, any latent concerns, and whether the issue is resolved or still open. The comment goes to `issueNNNN-<slug>-COMMENT.md`, following all the comment rules in `quokka-review-pr`:
 
 ```markdown
 **Verdict:** <root cause in one line | still open | already fixed by #NNNN>
@@ -48,4 +48,4 @@ For audit issues, one line per claimed finding: `**Finding N:** valid / invalid 
 gh issue comment NNNN --body-file <review-dir>/issueNNNN-<slug>/issueNNNN-<slug>-COMMENT.md
 ```
 
-Then a 1–2 sentence summary in chat.
+Then provide a summary of one or two sentences in the chat.
