@@ -16,6 +16,18 @@ git rev-parse --show-toplevel
 
 Every `quokka` command below takes `--root <repo-root>` and `--source default`. Keep both.
 
+## Placeholders
+
+These placeholders are used here, in `quokka-run-problem`, and in the skills that call them:
+
+| Placeholder | Stands for |
+|---|---|
+| `<repo-root>` | the repository root, recorded above |
+| `<Problem>` | the problem to build, which is the name of its folder in `src/problems/`, such as `HydroShocktube` |
+| `<preset>` | the build preset, chosen in **Choose the preset** below, such as `1d` or `3d-apple` |
+| `<Nd>` | the dimension part of a preset: `1d`, `2d` or `3d` |
+| `<suffix>` | the GPU part of a preset, `cuda` or `hip`, found in **Choose the preset** below |
+
 ## Choose the preset
 
 - **Use the lowest dimension the problem allows.** Move to `2d` or `3d` only when the problem needs it.

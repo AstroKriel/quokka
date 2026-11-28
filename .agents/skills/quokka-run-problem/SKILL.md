@@ -5,7 +5,7 @@ description: "Run a built Quokka problem with its inputs and any parameter overr
 
 # Run a Quokka Problem
 
-Build the problem first with `quokka-build-problem`.
+Build the problem first with `quokka-build-problem`, which also defines the placeholders used here: `<repo-root>`, `<preset>` and `<Problem>`.
 
 ## Run the binary directly
 

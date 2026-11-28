@@ -11,13 +11,22 @@ This skill analyses and reports. It never changes the source code.
 
 This review is the baseline a maintainer reads before reviewing the PR themselves. It settles what can be settled by building, running and reading, with evidence for each finding, and states what it leaves to the maintainer. It never approves a PR: only a person does.
 
-Three words are used in one sense each:
+## Terms
 
-| Word | Meaning |
-|---|---|
-| Claim | what the PR says it does |
-| Evidence | what a build, a run, or a reading of the code shows |
-| Finding | a problem that the evidence supports |
+These words are used in one sense each, here and in the skills this review uses. Terms defined in another skill are listed with where to find them.
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| Claim | what the PR says it does | here |
+| Evidence | what a build, a run, or a reading of the code shows | here |
+| Finding | a problem that the evidence supports | here |
+| Maintainer | the person who reviews the PR after this review, and who alone can approve it | here |
+| Pre-existing | already present on the default branch, so not caused by the PR | here |
+| Default branch | `development`, the branch a PR merges into | `quokka-checkout-pr-and-default` |
+| Readiness | whether the PR has what a maintainer needs before reviewing starts | `quokka-check-pr-readiness` |
+| Hot path | code that runs for every cell or particle on every time step | `quokka-assess-pr-performance` |
+| Structure level | the form a part of the review takes: a line of prose, a table, or a subsection | Step 6 below |
+| Evidence table | the table of every run and check, one row each | Step 6 below |
 
 ## The argument
 
@@ -59,7 +68,7 @@ When a build fails, use `quokka-debug-build-failure`; when a run crashes or give
 
 ### Step 1: Check readiness
 
-Run `quokka-check-pr-readiness`. If a GPU test is missing and you can trigger it, post the `/azp run` command yourself (see **Comments**) rather than list it as a finding.
+Run `quokka-check-pr-readiness`, which also defines what readiness covers. If a GPU test is missing and you can trigger it, post the `/azp run` command yourself (see **Comments**) rather than list it as a finding.
 
 If the PR is not ready for any other reason, stop: post its readiness table as the comment, with the verdict `not ready for review` and one line per missing item, and do not review further. Readiness is the author's side and correctness is the review's; a draft or an incomplete PR gets the short note, not a full review.
 

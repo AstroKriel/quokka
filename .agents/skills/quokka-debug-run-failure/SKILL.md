@@ -9,7 +9,7 @@ The full guide, including GPU debuggers and sanitizers, is `docs/markdown/debugg
 
 ## Narrow it down
 
-1. **Check whether the default branch fails the same way,** with the same inputs (`quokka-checkout-pr-and-default`, `quokka-build-problem`, `quokka-run-problem`). If it does, the failure is not the PR's: report it as pre-existing.
+1. **Check whether the default branch fails the same way,** with the same inputs (`quokka-checkout-pr-and-default`, which also defines the default branch, then `quokka-build-problem` and `quokka-run-problem`). If it does, the failure is not the PR's: report it as pre-existing (defined under **Terms** in `quokka-review-pr`).
 2. **Make it small:** the lowest dimension, the smallest grid and the fewest steps that still show the failure, on one MPI rank.
 3. **Move to the CPU** if it failed on a GPU. A failure that also happens on the CPU is far easier to find.
 4. **Rebuild in Debug** (`-DCMAKE_BUILD_TYPE=Debug`) and rerun. An out-of-bounds access on an `amrex::Array4` then stops with the array and the indices.

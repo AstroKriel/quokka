@@ -17,4 +17,21 @@ Names follow `quokka-<verb>-<subject>`. Skills that are variants of the same tas
 | `quokka-debug-build-failure` | narrow down why a problem fails to configure or build |
 | `quokka-debug-run-failure` | narrow down why a problem crashes, aborts or gives a wrong result at run time |
 
+## Terms
+
+Each term is defined in one place, and every skill that uses it points there.
+
+| Term | Defined in |
+|---|---|
+| Claim, evidence, finding, maintainer, pre-existing | **Terms** in `quokka-review-pr` |
+| Structure level, evidence table | Step 6 of `quokka-review-pr` |
+| Default branch | `quokka-checkout-pr-and-default` |
+| Readiness | `quokka-check-pr-readiness` |
+| Hot path | `quokka-assess-pr-performance` |
+| `<repo-root>`, `<Problem>`, `<preset>`, `<Nd>`, `<suffix>` | **Placeholders** in `quokka-build-problem` |
+| `<slug>` | Step 2 of `quokka-review-pr` |
+| `<review-dir>` | **Set up** in `quokka-review-pr` |
+
+## Adding a skill
+
 A new skill gets a row here, a folder in `.agents/skills/`, and a link in `.claude/skills/` (`ln -s ../../.agents/skills/<skill> .claude/skills/<skill>`).

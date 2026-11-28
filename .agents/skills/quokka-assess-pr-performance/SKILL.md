@@ -5,7 +5,7 @@ description: "Assess the run time and memory of a Quokka pull request against th
 
 # Assess PR Performance
 
-Use this when the PR claims to change performance, or when it changes code on the hot path (see below). For why GPU kernels behave the way they do, see `docs/markdown/performance.md`.
+Use this when the PR claims to change performance, or when it changes code on the hot path (defined below). For why GPU kernels behave the way they do, see `docs/markdown/performance.md`.
 
 ## The hot path
 
@@ -20,7 +20,7 @@ When unsure, measure: the TinyProfiler tables at the end of a run (see **What to
 
 ## Set up a fair comparison
 
-Build the default branch and the PR with the same preset (`quokka-checkout-pr-and-default`, `quokka-build-problem`), and run both:
+Build the default branch and the PR with the same preset (`quokka-checkout-pr-and-default`, which also defines the default branch, then `quokka-build-problem`), and run both:
 
 - on the same machine, one after the other, with nothing else running on it;
 - with the same inputs, a problem large enough that a run takes at least tens of seconds;
