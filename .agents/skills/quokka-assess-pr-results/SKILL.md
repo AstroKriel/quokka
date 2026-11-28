@@ -5,7 +5,10 @@ description: "Assess the output of a Quokka run on a pull request against the de
 
 # Assess PR Results
 
-First run the same scenario on the PR and on the default branch (defined in `quokka-checkout-pr-and-default`; see `quokka-checkout-pr-and-default`, `quokka-build-problem` and `quokka-run-problem`).
+Compare the output of a run on the PR with the same run on the default branch.
+
+**Before this:** run the same scenario on both branches with `quokka-checkout-pr-and-default`, `quokka-build-problem` and `quokka-run-problem`.
+**Terms:** default branch (`quokka-checkout-pr-and-default`); pre-existing (**Terms** in `quokka-review-pr`).
 
 ## What to weigh
 
@@ -17,5 +20,5 @@ Ignore AMReX performance advisories such as "grid blocking factor (N) is too sma
 
 An error norm within about 2× of its tolerance is not automatically the PR's fault, so compare it against the default branch:
 
-- If both branches give nearly the same norm close to the tolerance, the failure is tolerance noise that was already there. Note it as pre-existing (defined under **Terms** in `quokka-review-pr`).
+- If both branches give nearly the same norm close to the tolerance, the failure is tolerance noise that was already there. Note it as pre-existing.
 - If the norm jumps by an order of magnitude from the default branch to the PR, it is a regression, even if it still passes.

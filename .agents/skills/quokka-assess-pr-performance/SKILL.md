@@ -5,19 +5,22 @@ description: "Assess the run time and memory of a Quokka pull request against th
 
 # Assess PR Performance
 
-Use this when the PR claims to change performance, or when it changes code on the hot path (defined below). For why GPU kernels behave the way they do, see `docs/markdown/performance.md`.
+Compare the run time and memory of the PR with the default branch. Use this when the PR claims to change performance, or when it changes code on the hot path (defined below). For why GPU kernels behave the way they do, see `docs/markdown/performance.md`.
+
+**Before this:** check out both branches with `quokka-checkout-pr-and-default`.
+**Terms:** default branch (`quokka-checkout-pr-and-default`); `<preset>` (**Presets** in `quokka-build-problem`).
 
 ## The hot path
 
-The hot path is the code that runs on every time step: anything reached from the time-step loop, where `AMRSimulation::timeStepWithSubcycling` calls `QuokkaSimulation::advanceSingleTimestepAtLevel` on each level, and `computeTimestepAtLevel` sets each step's size. To tell whether a change is on it, follow the calls in the diff back to one of these.
+The hot path is the code that runs on every time step. That is anything reached from the time-step loop: `AMRSimulation::timeStepWithSubcycling` calls `QuokkaSimulation::advanceSingleTimestepAtLevel` on each level, and `computeTimestepAtLevel` sets each step's size. To tell whether a change is on the hot path, follow the calls in the diff back to one of these functions.
 
-Code that runs once per run, such as initial conditions, reading inputs, and writing plotfiles and checkpoints, is not on the hot path, unless the problem runs it every step. Within the hot path, loops over every cell or particle, such as an `amrex::ParallelFor`, cost the most, since their cost grows with the size of the grid.
+Code that runs once per run, such as initial conditions, reading inputs, and writing plotfiles and checkpoints, is not on the hot path, unless the problem runs it every step. Within the hot path, loops over every cell or particle cost the most, such as an `amrex::ParallelFor`, because their cost grows with the size of the grid.
 
-When unsure how much a change matters, measure it: the TinyProfiler tables at the end of a run (see **What to read**) show the time spent in each `BL_PROFILE` region.
+When unsure how much a change matters, measure it: the TinyProfiler tables at the end of a run (see **What to read** below) show the time spent in each `BL_PROFILE` region.
 
 ## Set up a fair comparison
 
-Build the default branch and the PR with the same preset (`quokka-checkout-pr-and-default`, which also defines the default branch, then `quokka-build-problem`), and run both:
+Build the default branch and the PR with the same preset, using `quokka-build-problem`. Then run both:
 
 - on the same machine, one after the other, with nothing else running on it;
 - with the same inputs, a problem large enough that a run takes at least tens of seconds;

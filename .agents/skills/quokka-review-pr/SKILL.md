@@ -5,7 +5,9 @@ description: "Review a Quokka pull request: build and run the code to test each 
 
 # Quokka PR Review
 
-This skill analyses and reports. It never changes the source code.
+Review a PR by testing each claim it makes, and post a short verdict. This skill analyses and reports; it never changes the source code.
+
+**Terms:** listed under **Terms** below, with where each is defined.
 
 ## What this review is for
 
@@ -37,7 +39,12 @@ A target, plus an optional instruction:
 
 With no argument, ask which target. For an issue, use `quokka-review-issue`.
 
-An instruction sets the scope: it decides what you build, what you run, and what the report covers, and the comment must answer it directly, in the **Verdict** line when it is the whole point of the review. It never waives the rule in Step 3 that a fix is only confirmed after watching the bug fail, and a request to fix something is answered with a suggested fix in the comment, never an edit.
+An instruction sets the scope of the review:
+
+- It decides what you build, what you run, and what the report covers.
+- The comment answers it directly, in the **Verdict** line when it is the whole point of the review.
+- It never waives the rule in Step 3 that a fix is only confirmed after watching the bug fail.
+- A request to fix something is answered with a suggested fix in the comment, never with an edit.
 
 ## Comments
 
@@ -68,9 +75,11 @@ When a build fails, use `quokka-debug-build-failure`; when a run crashes or give
 
 ### Step 1: Check readiness
 
-Run `quokka-check-pr-readiness`, which also defines what readiness covers. If a GPU test is missing and you can trigger it, post the `/azp run` command yourself (see **Comments**) rather than list it as a finding.
+Run `quokka-check-pr-readiness`. If a GPU test is missing and you can trigger it, post the `/azp run` command yourself (see **Comments**), rather than listing it as a finding.
 
-If the PR is not ready for any other reason, stop: post its readiness table as the comment, with the verdict `not ready for review` and one line per missing item, and do not review further. Readiness is the author's side and correctness is the review's; a draft or an incomplete PR gets the short note, not a full review.
+If the PR is not ready for any other reason, stop the review there. Post the readiness table as the comment, with the verdict `not ready for review` and one line per missing item.
+
+Readiness is the author's side of the PR, and correctness is the review's. A draft or an incomplete PR gets this short note, not a full review.
 
 ### Step 2: List the claims
 
@@ -96,24 +105,37 @@ Scan the diff for `AMREX_GPU_DEVICE`, `amrex::ParallelFor`, or changes to `simul
 
 ### Step 3: Test each claim
 
-Check out the PR and the default branch with `quokka-checkout-pr-and-default`, build with `quokka-build-problem` (read it before the first `quokka config`), and run with `quokka-run-problem`. Record each run as a row of the evidence table (Step 6).
+For every claim, the procedure is the same:
+
+1. Check out the PR and the default branch with `quokka-checkout-pr-and-default`.
+2. Build with `quokka-build-problem`. Read it before the first `quokka config`.
+3. Run with `quokka-run-problem`.
+4. Record each run as a row of the evidence table (Step 6).
+
+What to run depends on the kind of claim.
 
 **A bug fix.** Never claim a PR fixes something without first watching it fail on the default branch.
 
-1. On the default branch, run with the parameters that expose the bug, and record exactly what you observe: file count, error message, incorrect value. If the bug does not reproduce, stop and tell the user why: already fixed upstream, wrong parameters, platform difference.
-2. On the PR, run the identical scenario. Confirm the wrong behaviour is gone, the run completes cleanly, and the output matches the claim.
+1. On the default branch, run with the parameters that expose the bug. Record exactly what you observe: the file count, the error message, or the incorrect value.
+2. If the bug does not reproduce, stop and tell the user why: it was already fixed upstream, the parameters are wrong, or the platform differs.
+3. On the PR, run the identical scenario. Confirm that the wrong behaviour is gone, the run completes cleanly, and the output matches the claim.
 
 **A feature.** Test each promised behaviour on the PR, the usual case first and then the stated limits. Mark each one verified, failed, or not testable.
 
 **An accuracy claim.** Run the convergence test on both branches, and compare error norms and convergence rates with `quokka-assess-pr-results`.
 
-**A performance claim,** or a change on the hot path (defined in `quokka-assess-pr-performance`): compare the branches with `quokka-assess-pr-performance`.
+**A performance claim,** or a change on the hot path: compare the branches with `quokka-assess-pr-performance`.
 
 Build on the GPU as well when Step 2 flagged device code.
 
 ### Step 4: Check unaffected behaviour
 
-Run one scenario the PR should not change, such as an explicit configuration, a different code path, or an adjacent feature, and one boundary the PR description does not cover. Confirm with `quokka-assess-pr-results` that the results match the default branch.
+Run two more cases:
+
+- one scenario the PR should not change, such as an explicit configuration, a different code path, or an adjacent feature;
+- one boundary the PR description does not cover.
+
+Confirm with `quokka-assess-pr-results` that the results match the default branch.
 
 ### Step 5: Validate the findings
 
@@ -123,7 +145,7 @@ Before anything is written up, check each finding again, on its own:
 2. Confirm the evidence behind it: a run, a build or a number recorded in the evidence table, or a quoted line of code.
 3. Keep it only if both hold. A finding that cannot be confirmed is dropped, not softened.
 
-Where the tool allows it, pass each finding to a fresh agent with only the PR description, the finding and its evidence, so that the check does not inherit the reasoning that produced it.
+Where the tool allows it, pass each finding to a fresh agent, with only the PR description, the finding and its evidence. The check then does not inherit the reasoning that produced the finding.
 
 Do not report:
 
@@ -157,7 +179,7 @@ ls <review-dir>/ 2>/dev/null | grep "^prNNNN-" || echo "none"
 mkdir -p <review-dir>/prNNNN-<slug>
 ```
 
-Write inside an existing `prNNNN-*` folder if there is one. Filename `<folder>-REVIEW.md`; follow-up rounds append `-v2`, `-v3`.
+The review's `<folder>` is `prNNNN-<slug>`, or an existing `prNNNN-*` folder if there is one. Name the report `<folder>-REVIEW.md`, and add `-v2`, `-v3` and so on for follow-up rounds.
 
 The report holds, in this order:
 
@@ -175,7 +197,7 @@ The report holds, in this order:
 
 #### The comment
 
-A separate file, `<folder>-COMMENT.md`:
+Write the comment to a separate file, `<folder>-COMMENT.md`:
 
 ```markdown
 **Verdict:** <ready for maintainer review | N blocking | cannot verify X>

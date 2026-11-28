@@ -17,7 +17,10 @@ The diff touches code inside `amrex::ParallelFor`, so the GPU build is needed to
 
 ## Step 3: Test each claim
 
-Both branches are checked out (`quokka-checkout-pr-and-default`), and `HydroWaveConvergence` is built in 1D (`quokka-build-problem`, chosen from `choosing-test-problems.md`) and run on both (`quokka-run-problem`). `quokka-assess-pr-results` compares the error norms and convergence rates. The PR is also built with the GPU preset; the machine has no GPU, so the build is the check.
+1. Both branches are checked out with `quokka-checkout-pr-and-default`.
+2. `HydroWaveConvergence`, chosen from `choosing-test-problems.md`, is built in 1D on both branches with `quokka-build-problem`, and run with `quokka-run-problem`.
+3. `quokka-assess-pr-results` compares the error norms and convergence rates.
+4. The PR is also built with the GPU preset. The machine has no GPU, so the build is the check.
 
 ## Step 4: Check unaffected behaviour
 

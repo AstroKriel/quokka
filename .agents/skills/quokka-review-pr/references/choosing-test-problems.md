@@ -1,6 +1,8 @@
 # Choosing Test Problems
 
-Which Quokka problems to run for each kind of claim, and for the unaffected case. Each problem is a folder in `src/problems/` with its inputs in `inputs/`; read its test file for what it checks and its pass criterion before relying on it. Pick the lowest dimension that exercises the change (`quokka-build-problem`).
+Which Quokka problems to run for each kind of claim, and for the unaffected case.
+
+Each problem is a folder in `src/problems/`, with its inputs in `inputs/`. Before relying on a problem, read its test file for what it checks and what counts as a pass. Build it in the lowest dimension that exercises the change (see **Choose the preset** in `quokka-build-problem`).
 
 ## Accuracy and convergence
 
@@ -26,9 +28,13 @@ For a bug fix or robustness claim about shocks, strong gradients or extreme stat
 
 ## The unaffected case
 
-Step 4 runs one scenario the PR should not change. Choose it from the other table: a shock problem for a change aimed at smooth flow, a convergence problem for a change aimed at shocks, or a problem from another module when the change is meant to be local to one.
+Step 4 runs one scenario the PR should not change. Choose it from the other table:
+
+- a shock problem, for a change aimed at smooth flow;
+- a convergence problem, for a change aimed at shocks;
+- a problem from another module, for a change meant to stay within one module.
 
 ## The test suites
 
-- **CI tests:** the problems registered with `add_test` in their `CMakeLists.txt`, run with `ctest -R <name>`. Check the dimensions each test is registered for: a test registered only for a dimension no CI job builds never runs.
-- **The nightly regression suite:** `regression/quokka-tests.ini`, which compares output against stored benchmarks. A change that alters results on purpose needs its benchmarks regenerated, which only the suite maintainer can do; say so in the review.
+- **CI tests** are the problems registered with `add_test` in their `CMakeLists.txt`, and run with `ctest -R <name>`. Check which dimensions each test is registered for: a test registered only for a dimension that no CI job builds never runs.
+- **The nightly regression suite** is `regression/quokka-tests.ini`, which compares output against stored benchmarks. A change that alters results on purpose needs its benchmarks regenerated. Only the suite maintainer can do that, so say so in the review.

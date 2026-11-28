@@ -5,7 +5,10 @@ description: "Review a Quokka GitHub issue or audit finding: check it against th
 
 # Quokka Issue Review
 
-This skill analyses and reports. It never changes the source code.
+Check an issue, or an audit finding, against the current code, and post a short verdict. This skill analyses and reports; it never changes the source code.
+
+**Before this:** follow **Comments** and **Set up** in `quokka-review-pr`. This review uses the same `<review-dir>`, the same two files, and the same comment rules as **Step 6** there.
+**Terms:** `<slug>` (Step 2 of `quokka-review-pr`); `<review-dir>` (**Set up** in `quokka-review-pr`); default branch (`quokka-checkout-pr-and-default`).
 
 ## The argument
 
@@ -16,21 +19,30 @@ A target, plus an optional instruction:
 
 With no argument, ask which target. For a pull request, use `quokka-review-pr`.
 
-## Comments, setup and reporting
-
-Follow **Comments**, **Set up**, and **Step 6: Write the report and comment** in `quokka-review-pr`: use the same `<review-dir>`, the same two files, and the same comment rules.
-
-## Reviewing a GitHub Issue
+## Review the issue
 
 ```bash
 gh issue view NNNN
 ```
 
-Derive a `<slug>` from the title. Inspect the affected source files and check git log for related commits and PRs. If the root cause is clear from code and history, that is enough; otherwise build `origin/development` as `dev-<slug>` (`quokka-checkout-pr-and-default`, then `quokka-build-problem`) and reproduce.
+Derive a `<slug>` from the title. Then:
 
-For audit issues (labels `agent/audit` / `agent/codex`), verify each claimed finding against the **current** code, and state per finding: still valid, or invalid and why.
+1. Read the affected source files, and check the git log for related commits and PRs.
+2. If the code and its history make the root cause clear, that is enough.
+3. Otherwise, reproduce the issue on the default branch: check it out with `quokka-checkout-pr-and-default`, and build it with `quokka-build-problem`.
 
-Write the same two files as for a PR. The report goes to `<review-dir>/issueNNNN-<slug>/issueNNNN-<slug>.md`, and gives the root cause, where the fix belongs, any latent concerns, and whether the issue is resolved or still open. The comment goes to `issueNNNN-<slug>-COMMENT.md`, following all the comment rules in `quokka-review-pr`:
+For audit issues (labels `agent/audit` and `agent/codex`), check each finding the audit claims against the **current** code. For each one, state whether it is still valid, or why it is not.
+
+## Write the report and comment
+
+The report goes to `<review-dir>/issueNNNN-<slug>/issueNNNN-<slug>.md`. It gives:
+
+- the root cause;
+- where the fix belongs;
+- any latent concerns;
+- whether the issue is resolved or still open.
+
+The comment goes to `issueNNNN-<slug>-COMMENT.md`, and follows the comment rules in `quokka-review-pr`:
 
 ```markdown
 **Verdict:** <root cause in one line | still open | already fixed by #NNNN>
@@ -42,7 +54,9 @@ Write the same two files as for a PR. The report goes to `<review-dir>/issueNNNN
 🤖 AI-assisted review
 ```
 
-For audit issues, one line per claimed finding: `**Finding N:** valid / invalid because X`.
+For an audit issue, write one line per finding instead: `**Finding N:** valid / invalid because X`.
+
+## Post the comment
 
 ```bash
 gh issue comment NNNN --body-file <review-dir>/issueNNNN-<slug>/issueNNNN-<slug>-COMMENT.md
