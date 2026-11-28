@@ -30,7 +30,7 @@ Each term is defined in one place, and every skill that uses it points there.
 | Hot path | `quokka-assess-pr-performance` |
 | Preset | **Presets** in `quokka-build-problem` |
 | `<repo-root>`, `<Problem>`, `<preset>`, `<num-dims>`, `<suffix>` | **Placeholders** in `quokka-build-problem` |
-| `<slug>` | Step 2 of `quokka-review-pr` |
+| `<short-name>` | Step 2 of `quokka-review-pr` |
 | `<review-dir>` | **Set up** in `quokka-review-pr` |
 
 ## Adding a skill

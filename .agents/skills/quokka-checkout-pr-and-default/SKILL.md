@@ -7,11 +7,11 @@ description: "Check out a Quokka pull request and the default branch (developmen
 
 Check out a PR and the default branch side by side, so that the two can be built and compared.
 
-**Terms:** `<slug>` (Step 2 of `quokka-review-pr`).
+**Terms:** `<short-name>` (Step 2 of `quokka-review-pr`).
 
 The **default branch** is `development`, the branch every PR merges into. The other skills refer to it by that name, and point here for its definition.
 
-The throwaway branches are named after a `<slug>` for the work at hand. `quokka-review-pr`, for example, derives it from the PR title.
+The throwaway branches are named after a `<short-name>` for the work at hand. `quokka-review-pr`, for example, derives it from the PR title.
 
 ## Set up (once per session)
 
@@ -28,15 +28,15 @@ Checking out other branches needs a clean working tree:
 git status --porcelain
 ```
 
-If this prints anything, stop and ask the user either to commit their changes or to work in a separate worktree (`git worktree add ../review-<slug>`). Never stash their work.
+If this prints anything, stop and ask the user either to commit their changes or to work in a separate worktree (`git worktree add ../review-<short-name>`). Never stash their work.
 
-Check out both branches as throwaway branches named after `<slug>`, not after a commit hash, so that reviews running at the same time do not collide.
+Check out both branches as throwaway branches named after `<short-name>`, not after a commit hash, so that reviews running at the same time do not collide.
 
 ## Check out the default branch
 
 ```bash
 git fetch origin development
-git checkout -B dev-<slug> origin/development
+git checkout -B dev-<short-name> origin/development
 git submodule update --init --recursive
 ```
 
@@ -45,7 +45,7 @@ git submodule update --init --recursive
 `gh pr checkout` also works for PRs opened from forks, and `--force` resets a branch left over from an earlier round:
 
 ```bash
-gh pr checkout NNNN --branch pr-<slug> --force
+gh pr checkout NNNN --branch pr-<short-name> --force
 git submodule update --init --recursive
 ```
 
@@ -56,5 +56,5 @@ After either checkout, configure and build with `quokka-build-problem`. `quokka 
 Delete the throwaway branches when you are done:
 
 ```bash
-git branch -D dev-<slug> pr-<slug>
+git branch -D dev-<short-name> pr-<short-name>
 ```

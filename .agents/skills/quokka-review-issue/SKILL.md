@@ -8,7 +8,7 @@ description: "Review a Quokka GitHub issue or audit finding: check it against th
 Check an issue, or an audit finding, against the current code, and post a short verdict. This skill analyses and reports; it never changes the source code.
 
 **Before this:** follow **Comments** and **Set up** in `quokka-review-pr`. This review uses the same `<review-dir>`, the same two files, and the same comment rules as **Step 6** there.
-**Terms:** `<slug>` (Step 2 of `quokka-review-pr`); `<review-dir>` (**Set up** in `quokka-review-pr`); default branch (`quokka-checkout-pr-and-default`).
+**Terms:** `<short-name>` (Step 2 of `quokka-review-pr`); `<review-dir>` (**Set up** in `quokka-review-pr`); default branch (`quokka-checkout-pr-and-default`).
 
 ## The argument
 
@@ -25,7 +25,7 @@ With no argument, ask which target. For a pull request, use `quokka-review-pr`.
 gh issue view NNNN
 ```
 
-Derive a `<slug>` from the title. Then:
+Derive a `<short-name>` from the title. Then:
 
 1. Read the affected source files, and check the git log for related commits and PRs.
 2. If the code and its history make the root cause clear, that is enough.
@@ -35,14 +35,14 @@ For audit issues (labels `agent/audit` and `agent/codex`), check each finding th
 
 ## Write the report and comment
 
-The report goes to `<review-dir>/issueNNNN-<slug>/issueNNNN-<slug>.md`. It gives:
+The report goes to `<review-dir>/issueNNNN-<short-name>/issueNNNN-<short-name>.md`. It gives:
 
 - the root cause;
 - where the fix belongs;
 - any latent concerns;
 - whether the issue is resolved or still open.
 
-The comment goes to `issueNNNN-<slug>-COMMENT.md`, and follows the comment rules in `quokka-review-pr`:
+The comment goes to `issueNNNN-<short-name>-COMMENT.md`, and follows the comment rules in `quokka-review-pr`:
 
 ```markdown
 **Verdict:** <root cause in one line | still open | already fixed by #NNNN>
@@ -59,7 +59,7 @@ For an audit issue, write one line per finding instead: `**Finding N:** valid / 
 ## Post the comment
 
 ```bash
-gh issue comment NNNN --body-file <review-dir>/issueNNNN-<slug>/issueNNNN-<slug>-COMMENT.md
+gh issue comment NNNN --body-file <review-dir>/issueNNNN-<short-name>/issueNNNN-<short-name>-COMMENT.md
 ```
 
 Then provide a summary of one or two sentences in the chat.

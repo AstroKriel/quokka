@@ -88,7 +88,7 @@ gh pr view NNNN
 gh pr diff NNNN
 ```
 
-Derive a kebab-case `<slug>` from the title, such as `fix-amr-regrid` from "Fix AMR regrid bug".
+Derive a `<short-name>` from the title: a few lowercase words joined by hyphens, such as `fix-amr-regrid` from "Fix AMR regrid bug". It names the throwaway branches and the review folder.
 
 List every claim the PR makes, from the PR description, linked issues and the diff. Where the description is vague, infer the claim from the diff and note the gap. Each kind of claim sets the evidence Step 3 produces:
 
@@ -176,10 +176,10 @@ A table needs real columns: each one has a name and holds the same kind of value
 
 ```bash
 ls <review-dir>/ 2>/dev/null | grep "^prNNNN-" || echo "none"
-mkdir -p <review-dir>/prNNNN-<slug>
+mkdir -p <review-dir>/prNNNN-<short-name>
 ```
 
-The review's `<folder>` is `prNNNN-<slug>`, or an existing `prNNNN-*` folder if there is one. Name the report `<folder>-REVIEW.md`, and add `-v2`, `-v3` and so on for follow-up rounds.
+The review's `<folder>` is `prNNNN-<short-name>`, or an existing `prNNNN-*` folder if there is one. Name the report `<folder>-REVIEW.md`, and add `-v2`, `-v3` and so on for follow-up rounds.
 
 The report holds, in this order:
 
