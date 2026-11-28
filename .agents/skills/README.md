@@ -28,7 +28,8 @@ Each term is defined in one place, and every skill that uses it points there.
 | Default branch | `quokka-checkout-pr-and-default` |
 | Readiness | `quokka-check-pr-readiness` |
 | Hot path | `quokka-assess-pr-performance` |
-| `<repo-root>`, `<Problem>`, `<preset>`, `<Nd>`, `<suffix>` | **Placeholders** in `quokka-build-problem` |
+| Preset | **Presets** in `quokka-build-problem` |
+| `<repo-root>`, `<Problem>`, `<preset>`, `<num-dims>`, `<suffix>` | **Placeholders** in `quokka-build-problem` |
 | `<slug>` | Step 2 of `quokka-review-pr` |
 | `<review-dir>` | **Set up** in `quokka-review-pr` |
 

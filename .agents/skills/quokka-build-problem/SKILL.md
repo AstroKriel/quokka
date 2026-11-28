@@ -24,9 +24,21 @@ These placeholders are used here, in `quokka-run-problem`, and in the skills tha
 |---|---|
 | `<repo-root>` | the repository root, recorded above |
 | `<Problem>` | the problem to build, which is the name of its folder in `src/problems/`, such as `HydroShocktube` |
-| `<preset>` | the build preset, chosen in **Choose the preset** below, such as `1d` or `3d-apple` |
-| `<Nd>` | the dimension part of a preset: `1d`, `2d` or `3d` |
-| `<suffix>` | the GPU part of a preset, `cuda` or `hip`, found in **Choose the preset** below |
+| `<preset>` | the build preset (defined below), such as `1d` or `3d-cuda` |
+| `<num-dims>` | the number of dimensions of a preset: `1`, `2` or `3` |
+| `<suffix>` | the GPU backend of a preset, `cuda` or `hip`, found in **Choose the preset** below |
+
+## Presets
+
+A preset is a named build configuration of the `quokka` script. One name sets the number of dimensions, whether the build is Release or Debug, and the GPU backend or compiler. Each preset builds into its own folder, `<repo-root>/build/<preset>`, and `quokka --help` lists them all. With no `-d`, the script uses `1d`.
+
+| Presets | Build |
+|---|---|
+| `1d`, `2d`, `3d` | Release, CPU |
+| `1d-debug`, `2d-debug`, `3d-debug` | Debug, CPU |
+| `1d-cuda`, `2d-cuda`, `3d-cuda` | Release, with the CUDA GPU backend |
+| `1d-hip`, `2d-hip`, `3d-hip` | Release, with the HIP GPU backend |
+| `1d-apple`, `2d-apple`, `3d-apple` | Release, with Apple clang |
 
 ## Choose the preset
 
@@ -61,6 +73,6 @@ quokka config -d <preset> --delete --source default --root <repo-root> -DQUOKKA_
 quokka build -d <preset> <Problem> --source default --root <repo-root>
 ```
 
-For the GPU build, run the same two commands with `-d <Nd>-<suffix>`, for example `-d 3d-cuda`.
+For the GPU build, run the same two commands with `-d <num-dims>d-<suffix>`, for example `-d 3d-cuda`.
 
 To run what was built, use `quokka-run-problem`.

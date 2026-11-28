@@ -12,8 +12,8 @@ The full guide, including GPU debuggers and sanitizers, is `docs/markdown/debugg
 1. **Check whether the default branch fails the same way,** with the same inputs (`quokka-checkout-pr-and-default`, which also defines the default branch, then `quokka-build-problem` and `quokka-run-problem`). If it does, the failure is not the PR's: report it as pre-existing (defined under **Terms** in `quokka-review-pr`).
 2. **Make it small:** the lowest dimension, the smallest grid and the fewest steps that still show the failure, on one MPI rank.
 3. **Move to the CPU** if it failed on a GPU. A failure that also happens on the CPU is far easier to find.
-4. **Rebuild in Debug** (`-DCMAKE_BUILD_TYPE=Debug`) and rerun. An out-of-bounds access on an `amrex::Array4` then stops with the array and the indices.
-5. **Try AddressSanitizer** (`-DENABLE_ASAN=ON`) if Debug is too slow or finds nothing; set the environment variables given in `docs/markdown/debugging.md`.
+4. **Rebuild with the Debug preset** for the same dimension, `<num-dims>d-debug` (see **Presets** in `quokka-build-problem`), and rerun. An out-of-bounds access on an `amrex::Array4` then stops with the array and the indices.
+5. **Try AddressSanitizer** if Debug is too slow or finds nothing: configure a Release preset with `-DENABLE_ASAN=ON` added to `quokka config`, and set the environment variables given in `docs/markdown/debugging.md`.
 6. **GPU only:** if it fails on the GPU and not on the CPU, rerun with `CUDA_LAUNCH_BLOCKING=1` (NVIDIA) or `HIP_LAUNCH_BLOCKING=1` (AMD) to rule out asynchronous kernels, then follow "How to actually debug on GPUs" in `docs/markdown/debugging.md`.
 
 ## Report
