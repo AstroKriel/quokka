@@ -5,7 +5,18 @@ description: "Assess the run time and memory of a Quokka pull request against th
 
 # Assess PR Performance
 
-Use this when the PR claims to change performance, or touches code on the hot path (GPU kernels, `ParallelFor` loops, the hydro or radiation update). For why GPU kernels behave the way they do, see `docs/markdown/performance.md`.
+Use this when the PR claims to change performance, or when it changes code on the hot path (see below). For why GPU kernels behave the way they do, see `docs/markdown/performance.md`.
+
+## The hot path
+
+The hot path is the code that runs for every cell, or every particle, on every time step. Its cost grows with the number of cell updates, so it sets the run time; code that runs once per run does not. A change is on the hot path when both of these hold:
+
+1. **It runs every step.** It is reached from the time-step loop: `AMRSimulation::timeStepWithSubcycling` calls `QuokkaSimulation::advanceSingleTimestepAtLevel` on each level, and `computeTimestepAtLevel` sets each step's size. Follow the calls in the diff back to one of these.
+2. **It runs for every cell or particle.** It sits inside an `amrex::ParallelFor` (a GPU kernel when built for the GPU), or in a function called from one.
+
+Code outside these, such as initial conditions, reading inputs, creating particles at the start, and writing plotfiles and checkpoints, is not on the hot path unless the problem runs it every step.
+
+When unsure, measure: the TinyProfiler tables at the end of a run (see **What to read**) list the time spent in each `BL_PROFILE` region. A change inside a region that takes a large share of the time is on the hot path.
 
 ## Set up a fair comparison
 

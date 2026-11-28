@@ -98,7 +98,7 @@ Check out the PR and the default branch with `quokka-checkout-pr-and-default`, b
 
 **An accuracy claim.** Run the convergence test on both branches, and compare error norms and convergence rates with `quokka-assess-pr-results`.
 
-**A performance claim,** or a change to a hot loop: compare the branches with `quokka-assess-pr-performance`.
+**A performance claim,** or a change on the hot path (defined in `quokka-assess-pr-performance`): compare the branches with `quokka-assess-pr-performance`.
 
 Build on the GPU as well when Step 2 flagged device code.
 
