@@ -118,9 +118,21 @@ Then go to **Reporting**.
 
 ## Reporting
 
-Two files, two audiences. The **report** is the durable record, as detailed as the work warrants. The **comment** is read by a busy maintainer on a phone. Never post the report as the comment.
+Two files, two audiences. The **report** is the full record, as detailed as the work warrants. The **comment** is what a maintainer reads first, to decide what to do. Never post the report as the comment.
 
 One rule governs the comment: **the author does not need convincing, they need locating.**
+
+### Structure levels
+
+Each part of a review takes the lowest structure level that holds it, and moves up a level when it no longer fits. Higher levels add structure, not words, so the meaningful information stays easy to find as a review grows.
+
+| Level | Form | Used for |
+|---|---|---|
+| 1 | One line of prose | The verdict, and what was checked |
+| 3 | Table | Findings and evidence: every row has the same fields |
+| 4 | Subsection | A finding whose explanation does not fit in its row, such as a root cause or a derivation; in the report only |
+
+A table needs real columns: each one has a name and holds the same kind of value in every row. If a column could only be called "Notes", the content is a bullet list, not a table.
 
 ### 1. Report
 
@@ -131,42 +143,53 @@ mkdir -p <review-dir>/prNNNN-<slug>
 
 Write inside an existing `prNNNN-*` folder if there is one. Filename `<folder>-REVIEW.md`; follow-up rounds append `-v2`, `-v3`.
 
-Contents: evidence table, one row per phase; analysis — root cause with `file:line` for bug fixes, design match for features; PR-introduced concerns; pre-existing issues. Derivations, parameter sweeps and raw numbers live here.
+The report holds, in this order:
+
+1. **Verdict and what was checked:** one line each, as in the comment.
+2. **Evidence:** a table with one row per phase.
+
+   | Phase | Command | Commit | Preset and machine | Result | Output |
+   |---|---|---|---|---|---|
+
+3. **Findings:** a table with one row per finding, the same as in the comment.
+4. **One subsection per finding that needs explaining:** the root cause with `file:line` for a bug fix, or the match against the design for a feature. Derivations, parameter sweeps and raw numbers go here.
+5. **Pre-existing issues:** a bullet list.
 
 ### 2. Comment
 
-A separate file, `<folder>-COMMENT.md`. Fill this and delete every empty section:
+A separate file, `<folder>-COMMENT.md`:
 
 ```markdown
-**Verdict:** <ship it | N blocking | cannot verify X — one line, no hedging>
-**Checked:** <preset + targets built, tests run, the one or two headline numbers>
+**Verdict:** <ship it | N blocking | cannot verify X>
+**Checked:** <preset and problems built, tests run> at `<short-sha>`
 
-**Blocking**
-1. **<what breaks>** — `file.cpp:NN`. <Trigger → result. One sentence.>
-
-**Non-blocking**
-- **<claim>** — `file.cpp:NN`. <One clause.>
+| Finding | Where | Evidence | Blocks merge |
+|---|---|---|---|
+| <what is wrong> | `file.cpp:NN` | <trigger and result, with the number> | yes / no |
 
 <details><summary>Evidence</summary>
 
-| Phase | Ran | Observed |
-|---|---|---|
-| … | … | … |
+| Phase | Command | Commit | Result |
+|---|---|---|---|
+| … | … | … | … |
 
 </details>
 
 🤖 AI-assisted review
 ```
 
-1. **Verdict first.** Line 1 is the conclusion a maintainer acts on.
-2. **≤ 300 words outside `<details>`.** Count before posting.
-3. **One finding = one line.** Bold claim, `file:line`, then at most one sentence of trigger-and-result.
-4. **Cap at 5**, worst first, split Blocking / Non-blocking. Drop any finding whose fix would not change what the author does. Pre-existing issues get one Non-blocking line, or none.
-5. **Numbers, not adjectives.** `error norm 1.33e-09 vs tol 3e-03`, not "well within tolerance". Paste the real abort message.
-6. **No preamble, no recap, no closer.** Not "I reviewed…", "Overall this is a nice change", "Let me know if…". Start with the verdict, end with the last finding.
-7. **"None" is a complete section.** Write `**Blocking:** none.` and stop.
+For example, one finding:
 
-For one finding written badly and then well, see `references/comment-example.md`.
+| Finding | Where | Evidence | Blocks merge |
+|---|---|---|---|
+| `num_periods` is not validated | 7 problem files | `num_periods=0` or `=-1` runs zero steps and reports PASS at error norm 6.37e-18 | yes |
+
+1. **Verdict first.** Line 1 is the conclusion a maintainer acts on.
+2. **One row per finding,** at most 5, worst first, with the rows that block merging before the rest. Drop any finding whose fix would not change what the author does. A pre-existing issue gets one row with `no` in the last column, or none.
+3. **Numbers, not adjectives.** `error norm 1.33e-09 vs tol 3e-03`, not "well within tolerance". Paste the real abort message.
+4. **A row holds the claim and its number, not the explanation.** An explanation that does not fit goes into the report as a subsection.
+5. **No preamble, no recap, no closer.** Start with the verdict, end with the table.
+6. **No findings is a complete answer.** Replace the table with `No findings.`
 
 Before posting, check: reading **only** the Verdict line, does a maintainer know whether to merge? If not, rewrite that line.
 
