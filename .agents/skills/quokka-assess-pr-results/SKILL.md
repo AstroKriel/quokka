@@ -9,7 +9,7 @@ Run the same scenario on the PR and on the default branch first (`quokka-checkou
 
 ## Reading output
 
-Ignore AMReX performance advisories — "grid blocking factor (N) is too small for reasonable performance" is a grid-layout preference, not correctness. Mention them only when the PR is about grid decomposition.
+Ignore AMReX performance advisories: "grid blocking factor (N) is too small for reasonable performance" is a grid-layout preference, not correctness. Mention them only when the PR is about grid decomposition.
 
 Weigh: convergence rates, error norms, SUCCESS/FAIL lines, actual abort messages.
 
