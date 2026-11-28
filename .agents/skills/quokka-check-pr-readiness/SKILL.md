@@ -16,15 +16,16 @@ python3 .agents/skills/quokka-check-pr-readiness/scripts/check_pr_readiness.py \
     <pr-number>
 ```
 
-It prints one row per check and exits 0 when every check passes.
+It prints one row per check and exits 0 when every check passes. The last column says what the author does when a check fails.
 
-| Check | Passes when |
-|---|---|
-| State | the PR is open and out of draft |
-| CI | every check on the latest commit passed or was skipped, and none is still running |
-| Description | the template placeholder is gone, and every checklist item is ticked or struck through as not applicable |
-| GPU tests | a `/azp run` comment exists, or the author struck the GPU checklist item through as not applicable |
-| Review threads | none is unresolved |
+| Check | Passes when | If it fails, the author |
+|---|---|---|
+| State | the PR is open and out of draft | marks the PR ready for review |
+| CI | every check on the latest commit passed or was skipped, and none is still running | fixes the failing checks named in the detail, or waits for the running ones to finish |
+| Description | the template placeholder is gone, and every checklist item is ticked or struck through as not applicable | completes the PR description, and ticks or strikes through each checklist item |
+| GPU tests | a `/azp run` comment exists, or the author struck the GPU checklist item through as not applicable | comments the `/azp run` command that the PR template gives for the change |
+| Review threads | none is unresolved | addresses each open review thread, and resolves it |
+| New tests run in CI | each new or changed test is built and run by a CI job (checked by reading, below) | registers each test for a dimension that a CI job builds |
 
 ## Check by reading: new tests run in CI
 
@@ -38,4 +39,4 @@ A test registered only for a dimension no CI job builds never runs, and counts a
 
 ## Report
 
-Report a table with one row per check, giving its result and detail. For each check that fails, add one line saying what the author should do next. When every check passes, the PR is ready for review.
+Report a table with one row per check, giving its result and detail. Then, for each check that fails, write one instruction to the author, taken from the last column of the table above and made specific to the PR: name the failing check, the open thread, or the checklist item. When every check passes, the PR is ready for review.

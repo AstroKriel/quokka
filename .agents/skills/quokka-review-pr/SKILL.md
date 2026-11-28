@@ -60,9 +60,28 @@ When a build fails, use `quokka-debug-build-failure`; when a run crashes or give
 
 Run `quokka-check-pr-readiness`. If a GPU test is missing and you can trigger it, post the `/azp run` command yourself (see **Comments**), rather than listing it as a finding.
 
-If the PR is not ready for any other reason, stop the review there. Post the readiness table as the comment, with the verdict `not ready for review` and one line per missing item.
+If the PR is not ready for any other reason, stop the review there, and post this comment to the author instead:
 
-Readiness is the author's side of the PR, and correctness is the review's. A draft or an incomplete PR gets this short note, not a full review.
+```markdown
+**Verdict:** not ready for review
+
+Before this PR can be reviewed, please:
+
+1. <the first thing to do, from the instructions in quokka-check-pr-readiness>
+2. <the next thing to do>
+
+Then ask for review again.
+
+<details><summary>Readiness checks</summary>
+
+<the readiness table>
+
+</details>
+
+🤖 AI-assisted review
+```
+
+Write each item as an instruction the author can act on, specific to the PR: "Fix the failing `build` check", not "CI failed". Readiness is the author's side of the PR, and correctness is the review's, so a draft or an incomplete PR gets this short note, not a full review.
 
 ### Step 2: List the claims
 
